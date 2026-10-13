@@ -6,7 +6,7 @@ A collection of agent specs and specifications for migrating legacy postal-deliv
 
 | Directory | Description |
 |-----------|-------------|
-| [`Postal/`](Postal/) | Migration spec for the legacy desktop import app (`Form1.vb`, VB.NET WinForms). Covers the target design: browser → Azure Blob Storage block upload, queue-based worker, Azure SQL bulk insert of the fixed-width `Delstat` import. See [`Postal/spec.md`](Postal/spec.md) for the full v1.2 specification. |
+| [`Postal/`](Postal/) | Migration spec for the legacy desktop import app (`Form1.vb`, VB.NET WinForms). Covers the target design: browser → Azure Blob Storage block upload, queue-based worker, Azure SQL bulk insert of the fixed-width `Delstat` import. See [`Postal/spec.md`](Postal/spec.md) for the full v1.2 specification and [`Postal/status.md`](Postal/status.md) — the live plan and progress tracker for the Postal implementation. |
 | [`beanstalk-github/`](beanstalk-github/) | A portable agent prompt (`agent.md`) that walks a user through migrating a Beanstalk-hosted SVN repository to a GitHub Git repository. Targets VS Code (Copilot), Claude Code, and Hermes harnesses. |
 
 ## Postal migration — summary
@@ -17,6 +17,7 @@ A collection of agent specs and specifications for migrating legacy postal-deliv
   - A queue-based worker streams the blob, parses the 309-byte records with the legacy field rules, and bulk-inserts into Azure SQL with checkpointed resume.
   - Job status (`Queued` / `Running` / `Succeeded` / `Failed`) and `RowsWritten` are surfaced via a small REST API.
 - The spec covers SAS refresh for slow uploads, single-consumer leases, transient-fault retries, resume semantics, least-privilege managed-identity RBAC, and deployment via azd/Bicep.
+- The Postal implementation is planned and tracked in [`Postal/status.md`](Postal/status.md), which is updated as tasks complete.
 
 ## Beanstalk → GitHub migration — summary
 

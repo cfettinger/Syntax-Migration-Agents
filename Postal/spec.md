@@ -4,6 +4,8 @@ Version 1.2, 2026-10-13 (v1.2: clarified 0-based field offsets; ZipCode begins a
 
 > **Source-app note:** `trunk/Form1.vb` is a **VB.NET WinForms** app (.NET Framework, `System.Data.SqlClient`) — **not VB6/COM**. No COM DLLs or OLE DB. Moving parts: fixed-width parser, `TRUNCATE` + row inserts into `Delstat`, then `EXEC Postalweb` and `EXEC Postalwebboth`. "VB6" in older notes means this desktop app.
 
+> **Planning & tracking:** The Postal implementation plan and progress are maintained in [`status.md`](status.md) alongside this spec. Use it to plan the work and track progress as tasks complete.
+
 Read this file and the desktop project. Produce a .NET 8 web app that preserves file-to-database behavior. Do not keep the desktop client.
 
 ## Goal
@@ -163,6 +165,8 @@ src/Import.Worker/      # queue consumer or Functions
 ```
 
 Deploy with azd/Bicep: validate with `azd provision --preview` (or `az deployment ... what-if`) before applying. Never inline credentials in IaC.
+
+Plan and track progress of the Postal project in `status.md` (this directory) — update it as tasks complete.
 
 App Service settings, not source:
 
