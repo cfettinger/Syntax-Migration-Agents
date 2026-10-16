@@ -30,7 +30,59 @@ Notes:
 
 ## Next Immediate Steps (Priority Order)
 
-- Implement ImportJob schema and Data access; scaffold Sql scripts.
-- Implement /api/imports POST, /api/imports/{jobId}/complete, and /api/imports/{jobId}/sas-refresh.
-- Implement Azure Function worker: queue visibility renewal, conditional DB claim, blob streaming, fixed-width parser, batching + SqlBulkCopy, stored procedure execution.
-- Add infra Bicep/azd templates and CI with OIDC.
+The steps below are written as isolated, testable tasks so an outside engineer or automation agent can pick them up and complete them. Each task includes acceptance criteria and required artifacts.
+
+1) Implement ImportJob DB objects and deployment script
+   - Files: infra/sql/001-create-importjob.sql (exists), add 002-create-delstat-schema.sql if Delstat DDL is required for testing.
+   - Acceptance: script runs against dev DB without secrets and creates ImportJob table and necessary indexes.
+   - Owner: infra / DBA
+
+2) API: POST /api/imports (create job + return user-delegation SAS)
+   - Implement in src/Postal.Api:
+     - Validate payload { originalFileName, sizeBytes } and reject >10GB.
+     - Insert ImportJob row (Status=Queued) using POSTAL_DB_CONN.
+     - Mint user-delegation SAS scoped to blobName (imports/{jobId}/{originalFileName}) with Create+Write permissions, expiry <= 1h. Use DefaultAzureCredential and Storage SDK; requires STORAGE_ACCOUNT_URL and managed identity with Storage Blob Delegator role.
+     - Return JSON: { jobId, blobName, sasUrl, expiresUtc }
+   - Acceptance: end-to-end local test where API returns a valid SAS URL and a block upload (using azure/storage-blob client or az storage blob upload-batch with SAS) succeeds to the imports container.
+   - Owner: backend dev
+
+3) API: POST /api/imports/{jobId}/complete
+   - Implement server-side check: confirm blob exists and SizeBytes > 0, ensure ImportJob.Status is Queued (409 if Running/Succeeded), set or ensure Queued and enqueue jobId into the imports queue exactly once.
+   - Response: 200 OK or 409 conflict with descriptive error.
+   - Acceptance: after uploading via SAS and calling /complete, a single queue message containing the GUID string is present in the imports queue.
+   - Owner: backend dev
+
+4) API: POST /api/imports/{jobId}/sas-refresh
+   - Implement refresh to mint a replacement SAS for the same blob while job is still Queued and upload is in progress.
+   - Acceptance: client can resume a blocked upload by obtaining a new SAS and completing upload blocks.
+   - Owner: backend dev
+
+5) Azure Function worker improvements (src/Postal.Function)
+   - Ensure queue message format is jobId string. Current ImportWorker implements parsing and bulk insert.
+   - Add visibility renewal: use Azure.Storage.Queues client to ReceiveMessages with long visibility and periodically UpdateMessageAsync to renew until job finishes or fails.
+   - Switch DB auth to managed identity: acquire access token via DefaultAzureCredential and set SqlConnection.AccessToken for production. Keep POSTAL_DB_CONN for dev interactive testing.
+   - Add configurable BatchSize, MaxRetries, and Telemetry to AppInsights. Ensure RowsWritten resume logic is resilient and truncate-only-on-first-run.
+   - Acceptance: worker correctly claims job (conditional DB update), processes blob, writes Delstat, executes Postalweb procedures, and marks job Succeeded; telemetry logs jobId and counts.
+   - Owner: backend dev
+
+6) Testing & QA
+   - Unit tests for parser functions (fixed-width vs CRLF), malformed record failure cases, and resume skipping logic.
+   - Integration test: local Azurite or dev Storage account + dev DB to run an end-to-end import of a small sample file (include a sample delstat.wrk in /testdata).
+   - Acceptance: automated test runs pass locally in dev environment and in CI.
+
+7) Infra & CI
+   - Add Bicep/azd templates for Storage (imports container + queue), App Service, Function App, and Azure SQL; include role assignment steps for managed identity (Storage Blob Data Contributor + Storage Blob Delegator) and SQL user provisioning script (run by ops).
+   - CI: GitHub Actions with OIDC token-based login for deployments; secrets only for non-OIDC scenarios stored in repo secrets or Key Vault.
+   - Acceptance: ability to deploy dev stack via CI without injecting long-lived credentials.
+
+8) Documentation & Handoff
+   - Update README.md with local dev steps, env vars, and how to run the API and Function locally (az login or VS sign-in required).
+   - Update Postal/status.md with a short checklist for each task above as completed items are checked off.
+
+Postal Migrator agent responsibilities
+ - Always update Postal/status.md after completing a meaningful task. Include: what changed, file paths, branch name, and any manual steps required to run/deploy.
+ - Do not commit secrets. Reference environment variables or Key Vault paths instead.
+ - When creating SQL or infra changes, include an SQL script or Bicep file under infra/ and list required RBAC/role assignments in status.md.
+ - For each API or function change, include acceptance criteria and at least one integration test to demonstrate success.
+
+If you approve these steps I will implement the API SAS endpoints next and update status.md with progress entries as I work.
