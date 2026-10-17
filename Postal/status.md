@@ -80,6 +80,48 @@ The steps below are written as isolated, testable tasks so an outside engineer o
    - Update README.md with local dev steps, env vars, and how to run the API and Function locally (az login or VS sign-in required).
    - Update Postal/status.md with a short checklist for each task above as completed items are checked off.
 
+9) Manual smoke test: generate valid sample .wrk and run end-to-end import (minimal validation)
+   - Title: Manual smoke test - sample Delstat import
+   - Owner: cfettinger / Postal Migrator - GPT-5 Mini
+   - Branch: postal-azure-function-worker
+   - Files to add: D:\Webs\Syntax\PostalExe\migration\testdata\generate_sample.ps1 (PowerShell generator)
+   - Infra changes: None
+   - Steps:
+     1. Set environment and sign-in:
+        - PowerShell: `az login` (or sign into Visual Studio)
+        - Set env vars in the shell: `($env:POSTAL_DB_CONN = "<dev-connection-string>")` and `($env:STORAGE_ACCOUNT_URL = "https://<yourstorage>.blob.core.windows.net")`.
+     2. Generate a valid sample record file:
+        - Run: `pwsh .\\migration\\testdata\\generate_sample.ps1 -OutFile sample.wrk`
+        - Script will create `sample.wrk` (309 bytes, ASCII) with valid numeric fields.
+     3. Create ImportJob and get SAS:
+        - POST to API: `POST /api/imports` with JSON `{ "originalFileName": "sample.wrk", "sizeBytes": 309 }`.
+        - Expect response: `{ jobId, blobName, sasUrl, expiresUtc }`.
+     4. Upload sample to SAS URL:
+        - Use curl: `curl -X PUT -H "x-ms-blob-type: BlockBlob" --data-binary @sample.wrk "<sasUrl>"`
+     5. Signal completion:
+        - `POST /api/imports/{jobId}/complete`
+     6. Run/monitor Function:
+        - Start Function host (`func start`) or ensure Function app is running to pick up queue message.
+        - Watch logs: job claim, parsing, bulk insert, stored proc execution, status update.
+   - Environment:
+     - POSTAL_DB_CONN (dev DB connection; do not commit)
+     - STORAGE_ACCOUNT_URL
+     - az login or VS auth
+   - RBAC / Permissions:
+     - Managed identity or signed-in user must have Storage Blob Data Contributor and Storage Blob Delegator on the storage account to mint SAS / read blob.
+     - DB user must have INSERT on Delstat/ImportJob and EXECUTE on Postalweb & Postalwebboth.
+   - Acceptance criteria:
+     - ImportJob.Status becomes `Succeeded` and ImportJob.RowsWritten >= 1.
+     - Delstat contains at least one new row matching the sample ZipCode / RouteID.
+     - Function logs show processing steps and no parsing errors.
+   - Tests:
+     - Manual integration smoke test only (no unit tests required): follow steps above.
+   - Test data:
+     - Script at migration/testdata/generate_sample.ps1 (generates sample.wrk)
+   - Estimated effort: 0.5 hours
+   - Commit message template: `test(e2e): add smoke-test sample generator and run smoke import`
+   - Status.md update on completion: add a Completed line with branch name, files added, and a one-line verification (e.g., `✅ Manual smoke test: sample.wrk imported; ImportJob Succeeded; rowsWritten=1; branch postal-azure-function-worker`).
+
 Postal Migrator agent responsibilities
  - Always update Postal/status.md after completing a meaningful task. Include: what changed, file paths, branch name, and any manual steps required to run/deploy.
  - Do not commit secrets. Reference environment variables or Key Vault paths instead.
