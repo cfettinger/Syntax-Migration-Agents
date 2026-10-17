@@ -28,3 +28,4 @@ appsettings.*.Local.json
 Thumbs.db
 Desktop.ini
 .DS_Store
+replacements.txt
