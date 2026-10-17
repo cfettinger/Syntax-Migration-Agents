@@ -15,7 +15,7 @@
 - Created migration scaffold at D:\Webs\Syntax\PostalExe\migration (new Git repo). Branch: postal-azure-function-worker (scaffolded minimal Api + Function projects).
 - IMPLEMENTATION IN PROGRESS: API endpoints for ImportJob and SAS minting (POST /api/imports) — in progress on branch postal-azure-function-worker (started by GitHub Copilot). Files: src/Postal.Api/Program.cs, src/Postal.Api/Data/ImportJobRepository.cs, src/Postal.Api/Services/BlobSasService.cs
 - IMPLEMENTATION IN PROGRESS: API endpoints /api/imports/{jobId}/complete and /api/imports/{jobId}/sas-refresh — in progress on branch postal-azure-function-worker. Files: src/Postal.Api/Program.cs
-- PLANNED: Website deployment (websitespec.md lift & shift, `postal-web`). Detailed handoff TODOs W1–W7 are in the section "Website Deployment TODOs" below. Next pickable task: W1 (Phase 1 source edits). No worktrees — tasks run on the shared working copy / this repo on main.
+- PLANNED: Website deployment (websitespec.md lift & shift, `postal-web`). Detailed handoff TODOs W1–W7 are in the section "Website Deployment TODOs" below. Next pickable task: W1 (Phase 1 source edits). All artifacts live in the central shared workspace so other agents can participate; tasks run from the repository's central checkout on `main`.
  - 7E1 Manual smoke test: generate sample.wrk and run end-to-end import
   - Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot)
   - Branch: postal-azure-function-worker
@@ -34,7 +34,15 @@
       - dotnet build ./src/Postal.Function/Postal.Function.csproj -c Debug
     - 2026-10-17T12:50:00Z: dotnet build ./src/Postal.Function/Postal.Function.csproj completed locally (Build succeeded, transitive TFM warnings observed).
       - Action taken: added <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings> to src/Postal.Function/Postal.Function.csproj to reduce noisy transitive package warnings from WorkerExtensions during local development.
-    - Note: Next steps are to run the Function host (dotnet run --project ./src/Postal.Function/Postal.Function.csproj) and perform the manual smoke test as previously listed.
+    - 2026-10-17T12:52:00Z: dotnet run ./src/Postal.Function/Postal.Function.csproj failed with duplicate class error CS0101 (type 'ImportWorker' already defined).
+      - Root cause: Duplicate class definition or renamed class not fully updated.
+      - Fix applied: Renamed class ImportWorker → ImportWorkerFunction in src/Postal.Function/ImportWorker.cs; updated constructor and logger generic type.
+      - Next: Run dotnet build ./src/Postal.Function/Postal.Function.csproj -c Debug to verify rebuild succeeds.
+      - Then: dotnet run --project ./src/Postal.Function/Postal.Function.csproj to launch the Function host.
+    - 2026-10-17T13:05:00Z: Runtime startup failure observed when running `dotnet run` directly for Postal.Function: gRPC channel URI `http://:` parse failure.
+      - Root cause: .NET isolated worker requires Azure Functions host to supply gRPC endpoint variables; direct `dotnet run` without host does not provide them.
+      - Fix path: start with Azure Functions Core Tools (`func start`) from src/Postal.Function or run via Visual Studio Function debug profile.
+      - Noise reduction: added src/Postal.Function/Directory.Build.props with `<SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>` so generated WorkerExtensions project stops emitting repeated net6 support warnings.
   - Next actions:
     1) Build src/Postal.Function and resolve any compile errors.
     2) Launch the Function host locally (func start or dotnet run) and monitor logs.
@@ -149,14 +157,14 @@ The steps below are written as isolated, testable tasks so an outside engineer o
 
 ## Website Deployment TODOs (websitespec.md — `postal-web` lift & shift)
 
-Source: `D:\Webs\Syntax\PostalExe\trunk\website\web` (SVN working copy `trunk/website`). No git worktrees — all tasks run on the shared working copy / this repo on `main`; each task is self-contained and safe to hand off. Verified 2026-10-16 (see Completed): Phase 1 code diff is ~5 one-line edits + 1 config removal + deploy-set filter.
+Source: `D:\Webs\Syntax\PostalExe\trunk\website\web` (SVN working copy `trunk/website`). All artifacts live in the central shared workspace so other agents can participate; all tasks run from this repository's central checkout on `main`; each task is self-contained and safe to hand off. Verified 2026-10-16 (see Completed): Phase 1 code diff is ~5 one-line edits + 1 config removal + deploy-set filter.
 
 ### W1 — Prepare website deploy source (Phase 1 code edits)
 - Title: Apply websitespec §6 Phase 1 edits to website source
 - Owner: cfettinger / Postal Migrator
-- Branch: `postal-website-deploy` (off `main` in the PostalExe migration repo; merge to main when done — no worktree)
+- Branch: `postal-website-deploy` (off `main` in the PostalExe migration repo; merge to main when done — tasks operate from the central shared workspace so other agents can participate)
 - Files to change:
-  - `database.asp` — line 12: replace `conn.Open "driver={ODBC Driver 17...};server=REDACTED_INTERNAL_IP;...","syntaxpostal","REDACTED_DB_PASSWORD"` with `<!--#include file="connvars.asp"-->` + `conn.Open ConnString, DbUser, DbPassword` (per §6.1; keep all commented history lines and all helpers: `sql_execute`, `validateInput`, `validateZip`, `returnValidated`, `returnZipValidated`, `ReadFormVariables`).
+  - `database.asp` — line 12: replace `conn.Open "driver={ODBC Driver 17...};server=REDACTED_INTERNAL_IP;...","syntaxpostal","<REDACTED_DB_PASSWORD>"` with `<!--#include file="connvars.asp"-->` + `conn.Open ConnString, DbUser, DbPassword` (per §6.1; keep all commented history lines and all helpers: `sql_execute`, `validateInput`, `validateZip`, `returnValidated`, `returnZipValidated`, `ReadFormVariables`).
   - `facingslipspinebush.asp` lines 4–5, `facingslipsroselle.asp` lines 4–5 — replace `User id=sa;Data source=REDACTED_LEGACY_USER` blocks with the same `connvars.asp` include and shared `conn`. Keep hardcoded queries (`WESTBURY` / `deerpark`) as-is.
   - `web.config` — remove the `<machineKey>` element (line 13). Remove nothing else.
   - `postalss.asp` line 276 — `href="routeupdate.asp"` → `href="updatedelete.asp"` (§6.4; only behavioral change).
@@ -164,7 +172,7 @@ Source: `D:\Webs\Syntax\PostalExe\trunk\website\web` (SVN working copy `trunk/we
 - Infra changes: none
 - Steps: 1) copy `web/` into the deploy repo layout (suggested: `website/web/`); 2) apply the four edits above; 3) add `connvars.asp` to `.gitignore`; 4) build the deploy file list per websitespec §5 (exclude: `a.asp`, `a.html.txt`, `test2.asp`, `routeupdate.asp`, `search.htm`, `aspnet_client/`, `backup/`, `Thumbs.db`, `_derived*/`, `test.asp`, `Postal.sln`, `.vs/`); 5) diff every deployed page against the original and confirm ONLY the four files above differ.
  - Progress: ✅ COMPLETE 2026-10-16. Skeleton committed as `485c0b3` (connvars.template.asp, deploy-list.txt, README.md, .gitignore). Phase 1 edits committed as `daa681c` on branch `postal-azure-function-worker` (local repo, no remote; shared working copy per this section's rule — no separate `postal-website-deploy` branch needed): `website/web/database.asp` (connvars include + helpers, no secrets), `facingslipspinebush.asp`, `facingslipsroselle.asp` (shared `conn` via include), `web.config` (machineKey removed), `postalss.asp` (routeupdate.asp → updatedelete.asp).
- - Verification evidence: `git grep -i -E "REDACTED_DB_PASSWORD|172\.20\.0\.141|syntaxpostal" HEAD -- website/` → 0 matches (no secrets); `git grep -c "updatedelete.asp" HEAD -- website/web/postalss.asp` → 1; machineKey absent from `web.config` (comment documents removal); all three data pages contain `<!--#include file="database.asp" -->`.
+ - Verification evidence: `git grep -i -E "REDACTED_DB_PASSWORD|172\.20\.0\.141|syntaxpostal" HEAD -- website/` → 0 matches (no secrets); `git grep -c "updatedelete.asp" HEAD -- website/web/postalss.asp` → 1; machineKey absent from `web.config` (comment documents removal); all three data pages contain `<!--#include file="database.asp" -->`. 
 - Environment: none (no secrets; `connvars.template.asp` contains placeholders only)
 - RBAC / Permissions: none
 - Acceptance criteria: `git diff` between original `web/` and prepared source shows changes in exactly `database.asp`, `facingslipspinebush.asp`, `facingslipsroselle.asp`, `web.config`, `postalss.asp`; no page renders a difference beyond the DB connection and the one nav link; no junk file is in the deploy list.
