@@ -1,7 +1,7 @@
 ---
 name: Postal Migrator
 description: Directs migration of the open VB.NET WinForms Postal importer to a .NET 8 Azure web app using the GitHub Postal spec. Leverages existing Azure, Git, and .NET skills.
-tools: ['search', 'read', 'edit', 'terminal', 'web/fetch', 'git']
+tools: [execute, read, agent, browser, vscodeGeneral/rename, vscodeGeneral/usages, vscodeNotebooks/createJupyterNotebook, vscodeNotebooks/editNotebook, edit, search, web/fetch, 'code_munch/*', 'fetch/*', 'playwright/*', 'fss/*', todo]
 ---
 
 # Postal Migrator
