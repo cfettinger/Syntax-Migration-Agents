@@ -1,6 +1,6 @@
 # Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL — Implementation Status
 
-**Last Updated:** 2026-10-16  
+**Last Updated:** 2026-10-17  
 **Spec Version:** 1.2  
 **Implementation Phase:** Scaffolding / branch created (postal-azure-function-worker)
 
@@ -43,6 +43,35 @@
       - Root cause: .NET isolated worker requires Azure Functions host to supply gRPC endpoint variables; direct `dotnet run` without host does not provide them.
       - Fix path: start with Azure Functions Core Tools (`func start`) from src/Postal.Function or run via Visual Studio Function debug profile.
       - Noise reduction: added src/Postal.Function/Directory.Build.props with `<SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>` so generated WorkerExtensions project stops emitting repeated net6 support warnings.
+    - 2026-10-17T13:15:00Z: Manual smoke test environment is live: Terminal A (Postal.Api) running, Terminal B (Functions host) running via Core Tools, Terminal C ready. Generated `sample.wrk` successfully at 309 bytes.
+      - Pending verification steps: upload via SAS URL, call `/api/imports/{jobId}/complete`, observe Function processing logs, and confirm ImportJob/Delstat results.
+    - 2026-10-17T08:01:20Z: Functions host acquired host lock ("Host lock lease acquired by instance ID '0000000000000000000000005073DE9C'"). Host appears healthy and ready to process queue messages.
+      - Next actions (operator):
+        1) POST /api/imports to create job and obtain SAS.
+        2) Upload `sample.wrk` to the returned SAS URL (PUT + x-ms-blob-type: BlockBlob).
+        3) POST /api/imports/{jobId}/complete to enqueue job.
+        4) Paste the API responses and the Functions host logs showing processing (job claimed, rows inserted, stored procs run, job marked Succeeded). Add those artifacts to this status entry before marking the smoke test complete.
+    - 2026-10-17T13:40:00Z: Function host startup failed under `func start --dotnet-isolated-debug`.
+      - Root cause 1: `--dotnet-isolated-debug` pauses worker startup awaiting debugger attach, which can cause host startup timeout during manual smoke tests.
+      - Root cause 2: `AzureWebJobsStorage` was not reachable (`UseDevelopmentStorage=true` without Azurite / valid storage emulator), and queue-trigger startup requires accessible storage.
+      - Recovery path: run `func start` without the debug flag and point `AzureWebJobsStorage` to a reachable storage account connection string or start Azurite locally.
+    - 2026-10-17T14:05:00Z: API `/api/imports` failed with `ActiveDirectoryInteractive` auth provider missing in SqlClient runtime.
+      - Root cause: `Microsoft.Data.SqlClient.Extensions.Azure` package not referenced in Postal.Api while using `Authentication=ActiveDirectoryInteractive` in POSTAL_DB_CONN.
+      - Fix applied: added package reference `Microsoft.Data.SqlClient.Extensions.Azure` to `src/Postal.Api/Postal.Api.csproj` (pinned to 7.0.2).
+      - Next: restart API (`dotnet build` + `dotnet run`) and retry POST `/api/imports`.
+    - 2026-10-17T14:20:00Z: POST /api/imports returned a jobId and blobName but sasUrl was empty (null). Example response:
+      - { jobId: c64c27a6-5206-46ed-a82a-f338227dba12, blobName: imports/c64c27a6-5206-46ed-a82a-f338227dba12/sample.wrk, sasUrl: null }
+      - 2026-10-17T14:25:00Z: Terminal C confirmed API response (jobId=c64c27a6-5206-46ed-a82a-f338227dba12, blobName=imports/c64c27a6-5206-46ed-a82a-f338227dba12/sample.wrk, sasUrl empty). Cause: BlobSasService not registered because STORAGE_ACCOUNT_URL was not set in the API process environment.
+        Next: set STORAGE_ACCOUNT_URL in the API terminal, restart the API, re-run POST /api/imports to obtain SAS, upload sample.wrk to the SAS URL, then POST /api/imports/{jobId}/complete and monitor Function host logs for processing and ImportJob status updates.
+      - Root cause: API did not have STORAGE_ACCOUNT_URL configured in its environment, so BlobSasService was not registered and no SAS was minted.
+      - Next actions (operator):
+        1) In the API terminal, set STORAGE_ACCOUNT_URL to the storage account URL used by the Functions host (e.g. https://syntaxstoragev2.blob.core.windows.net/) and restart the API.
+           - PowerShell: $env:STORAGE_ACCOUNT_URL = 'https://syntaxstoragev2.blob.core.windows.net/'; dotnet run --project .\src\Postal.Api\Postal.Api.csproj
+        2) Re-call POST /api/imports to obtain a SAS URL, upload the sample, then call /api/imports/{jobId}/complete and observe Function processing logs.
+        3) When processing completes, capture DB evidence (ImportJob.Status, RowsWritten) and Function logs and add them to this status entry.
+    - 2026-10-17T14:15:00Z: API build succeeded with ActiveDirectoryInteractive extension installed; NU1603 warning indicated requested `Microsoft.Data.SqlClient.Extensions.Azure` 6.1.1 unavailable and 7.0.2 resolved.
+      - Fix applied: pinned `Microsoft.Data.SqlClient.Extensions.Azure` to `7.0.2` in `src/Postal.Api/Postal.Api.csproj` to remove package resolution warning.
+      - Next: restart API and continue manual smoke test request sequence (`/api/imports` → SAS upload → `/complete`).
   - Next actions:
     1) Build src/Postal.Function and resolve any compile errors.
     2) Launch the Function host locally (func start or dotnet run) and monitor logs.
@@ -198,7 +227,7 @@ Source: `D:\Webs\Syntax\PostalExe\trunk\website\web` (SVN working copy `trunk/we
 - Commit message template: `feat(website): add connvars.asp deploy-time generator (secrets out of repo)`
 - Status.md update: `✅ W2 connvars.asp generated at deploy time; secrets never committed; branch postal-website-deploy`
  - Progress: ✅ COMPLETE 2026-10-16. Committed as `75a561b` in the migration repo working copy (no separate branch — local repo, per user): `infra/web/gen-connvars.ps1` (SQLOLEDB render, fail-fast on missing env vars, no-placeholder-survival check, password never printed), `.github/workflows/deploy-website.yml` (active `connvars-generator` job runs generator with placeholder values, asserts values in output with the password line excluded from logs, `git check-ignore` on `connvars.asp`, repo secret scan for legacy password/machineKey/SAS tokens; W5 OIDC zip-deploy job stubbed behind W3/W4), `testdata/connvars.sample.env` (placeholders only).
- - Verification evidence (local, 2026-10-16): generator run with placeholders → `connvars.asp written ... (server=postal-db-EXAMPLE, db=postal_example, user=postalweb)` + `Password: [redacted]`, rendered file contains `Provider=SQLOLEDB;Data Source=tcp:postal-db-EXAMPLE,1433;Initial Catalog=postal_example;`; missing-var run exits 1 with `Missing required environment variables: POSTAL_DB_PASSWORD`; `git check-ignore -v website/web/connvars.asp` → `.gitignore:4`; `git grep -i REDACTED_DB_PASSWORD` → 0 matches. Pipeline will re-run these on push (repo must be pushed to a remote with Actions enabled for the CI job itself to run).
+ - Verification evidence (local, 2026-10-16): generator run with placeholders → `connvars.asp written ... (server=postal-db-EXAMPLE, db=postal_example, user=postalweb)` + `Password: [redacted]`, rendered file contains `Provider=SQLOLEDB;Data Source=tcp:postal-db-EXAMPLE,1433;Initial Catalog=postal_example;`; missing-var run exits 1 with `Missing required environment variables: POSTAL_DB_PASSWORD`; `git check-ignore -v website/web/connvars.asp` → `.gitignore:4`; `git grep -i '<REDACTED_DB_PASSWORD>'` → 0 matches. Pipeline will re-run these on push (repo must be pushed to a remote with Actions enabled for the CI job itself to run).
 
 ### W3 — SQL login `postalweb` + least-privilege grants
 - Title: Create website SQL login and grants (run by ops on shared DB)
@@ -314,6 +343,12 @@ If you approve these steps I will implement the API SAS endpoints next and updat
 <!-- appended by Postal Migrator -->
 
 ## Recent Automated Checks
+
+- 2026-10-17T00:10:42-07:00 — Security: Created `replacements.txt` and performed an initial local history-rewrite test on a mirror to remove discovered plaintext tokens from repository history. No remote force-push was performed; initial cleaned artifacts were produced locally: `D:\Projects\Syntax-Migration-Agents\mirror-cleaned.git`, `D:\Projects\Syntax-Migration-Agents\mirror-clean-checkout`. Immediate action: rotate any credentials that may have been exposed before coordinating a force-push to origin.
+
+- 2026-10-17T00:25:00-07:00 — Security: Expanded the rewrite run: re-ran git-filter-repo on `D:\Projects\Syntax-Migration-Agents\mirror-temp` using the current `replacements.txt` and recreated `D:\Projects\Syntax-Migration-Agents\mirror-cleaned.git` and `D:\Projects\Syntax-Migration-Agents\mirror-clean-checkout`. Verification: repository and commit-level searches in the cleaned checkout returned no matches for the literal `<REDACTED_DB_PASSWORD>` token.
+
+  Note: a programmatic attempt to append additional variants to `replacements.txt` failed due to local file-write restrictions in this environment. If additional literal variants should be removed, add them to `D:\Projects\Syntax-Migration-Agents\replacements.txt` and re-run the local rewrite. See the 'Security Remediation & Release Plan' section for the recommended coordination steps.
 
 - 2026-10-17T12:10:00Z — Dev server connectivity: TCP to REDACTED_AZURE_SQL_HOSTNAME.public.0321e1ea10c5.database.windows.net:3342 succeeded (Test-NetConnection). Azure CLI (az) not available in this environment; interactive AAD sign-in (az login or Visual Studio) required locally for DefaultAzureCredential to mint SAS via BlobSasService.
 
