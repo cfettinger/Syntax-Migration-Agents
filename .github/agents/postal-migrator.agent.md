@@ -102,6 +102,10 @@ Postal Migrator agent enforcement rules:
 - Reject any handoff that lacks the Acceptance criteria or Tests sections.
 - Before marking a task complete in status.md, run the listed acceptance criteria locally or in CI and add evidence (command outputs or CI run link) to the status.md entry.
 - Always create a short commit that updates Postal/status.md describing the change and linking to the implementation branch/commit.
+- When updating Postal/status.md, do NOT include plaintext secrets, passwords, keys, or connection strings. Replace any sensitive values with placeholders (for example `<REDACTED_DB_PASSWORD>`) or with references to a secret store / Key Vault (for example `KeyVault:<vault-uri>/secret-name`). Before committing any status.md change the agent MUST:
+  1. Scan the proposed status.md content for likely secrets (look for common terms like `password`, `pwd`, `secret`, `key`, or high-entropy tokens) and redact them.
+  2. Run a quick verification scan (for example: `git grep -i -E "password|pwd|secret|key|REDACTED_" HEAD -- Postal || echo "no matches"`) and refuse the commit if unredacted secrets are detected.
+  3. Document in the status.md entry where the secret lives (Key Vault path or environment variable name) rather than the secret value itself.
 
 This section must be kept current by the Postal Migrator and used when creating TODOs for other agents or engineers.
 
