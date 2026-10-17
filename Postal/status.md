@@ -16,12 +16,19 @@
 - IMPLEMENTATION IN PROGRESS: API endpoints for ImportJob and SAS minting (POST /api/imports) — in progress on branch postal-azure-function-worker (started by GitHub Copilot). Files: src/Postal.Api/Program.cs, src/Postal.Api/Data/ImportJobRepository.cs, src/Postal.Api/Services/BlobSasService.cs
 - IMPLEMENTATION IN PROGRESS: API endpoints /api/imports/{jobId}/complete and /api/imports/{jobId}/sas-refresh — in progress on branch postal-azure-function-worker. Files: src/Postal.Api/Program.cs
 - PLANNED: Website deployment (websitespec.md lift & shift, `postal-web`). Detailed handoff TODOs W1–W7 are in the section "Website Deployment TODOs" below. Next pickable task: W1 (Phase 1 source edits). No worktrees — tasks run on the shared working copy / this repo on main.
-- 7E1 Manual smoke test: generate sample.wrk and run end-to-end import
+ - 7E1 Manual smoke test: generate sample.wrk and run end-to-end import
   - Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot)
   - Branch: postal-azure-function-worker
   - Files: migration/testdata/generate_sample.ps1
   - Started: 2026-10-17T12:00:00Z
-  - Status: In Progress — checking connectivity to dev SQL and Storage
+  - Status: In Progress — API build succeeded for Postal.Api; Postal.Function build/test started
+  - Progress log:
+    - 2026-10-17T12:34:00Z: dotnet build src/Postal.Api/Postal.Api.csproj succeeded locally (see migration commit).
+    - 2026-10-17T12:35:00Z: Postal.Function build initiated (agent will run dotnet build for src/Postal.Function next).
+  - Next actions:
+    1) Build src/Postal.Function and resolve any compile errors.
+    2) Launch the Function host locally (func start or dotnet run) and monitor logs.
+    3) Execute manual smoke test steps: generate sample.wrk, POST /api/imports to get SAS, upload sample to SAS URL, POST /api/imports/{jobId}/complete, verify queue message and let the Function process the job. Record evidence (DB row counts, logs) before marking this task complete.
 - ✅ Website lift & shift review (websitespec.md vs trunk/website/web): confirmed NO major code changes needed. Verified against source: conn layer edits in database.asp (line 12 legacy ODBC conn), facingslipspinebush.asp + facingslipsroselle.asp (dead sa/SYNTAXWEB conns, lines 4-5); web.config machineKey removal (line 13); one nav fix in postalss.asp line 276 (routeupdate.asp → updatedelete.asp). Junk pages confirmed present (a.asp, test2.asp, routeupdate.asp, search.htm, aspnet_client/). Branch: main (this repo).
 ## Open Design Decisions (from §12)
 
