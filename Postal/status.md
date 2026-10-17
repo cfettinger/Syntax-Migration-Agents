@@ -13,7 +13,8 @@
 ## In Progress / Pending (🟡)
 
 - Created migration scaffold at D:\Webs\Syntax\PostalExe\migration (new Git repo). Branch: postal-azure-function-worker (scaffolded minimal Api + Function projects).
-- Next: implement API endpoints to create ImportJob and mint user-delegation SAS; implement Function worker parsing and DB claim logic.
+- IMPLEMENTATION IN PROGRESS: API endpoints for ImportJob and SAS minting (POST /api/imports) — in progress on branch postal-azure-function-worker (started by GitHub Copilot). Files: src/Postal.Api/Program.cs, src/Postal.Api/Data/ImportJobRepository.cs, src/Postal.Api/Services/BlobSasService.cs
+- IMPLEMENTATION IN PROGRESS: API endpoints /api/imports/{jobId}/complete and /api/imports/{jobId}/sas-refresh — in progress on branch postal-azure-function-worker. Files: src/Postal.Api/Program.cs
 ## Open Design Decisions (from §12)
 
 ## Architecture Notes
