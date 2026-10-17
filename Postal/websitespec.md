@@ -70,7 +70,9 @@ Working copy: `trunk/website/web/`. Deploy set = column 2 only.
 
 Today (per request, every page):
 ```asp
-conn.Open "driver={ODBC Driver 17 for SQL Server};server=172.20.0.141;database=postal","syntaxpostal","Fak65k1f75"
+<!-- Use a protected include or secret manager instead of inline credentials -->
+<!--#include file="connvars.asp" -->
+conn.Open ConnString, DbUser, DbPassword  <!-- ConnString and DbUser/DbPassword are defined in connvars.asp or loaded from a secret store -->
 ```
 (Commented lines above it show the address history: `76.12.176.180/syntaxcms`, `208.112.84.42`, `192.168.1.124`, `SYNTAXWEB sa`.)
 
