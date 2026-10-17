@@ -32,7 +32,9 @@
       - Switched SQL usage to Microsoft.Data.SqlClient across projects.
     - 2026-10-17T12:41:00Z: Agent attempted to run dotnet build but the local terminal task was not executed by the agent. Please run the following in your developer terminal and paste the output into this issue or terminal log:
       - dotnet build ./src/Postal.Function/Postal.Function.csproj -c Debug
-    - Note: If build succeeds, next steps are to run the Function host (dotnet run --project ./src/Postal.Function/Postal.Function.csproj) and perform the manual smoke test as previously listed.
+    - 2026-10-17T12:50:00Z: dotnet build ./src/Postal.Function/Postal.Function.csproj completed locally (Build succeeded, transitive TFM warnings observed).
+      - Action taken: added <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings> to src/Postal.Function/Postal.Function.csproj to reduce noisy transitive package warnings from WorkerExtensions during local development.
+    - Note: Next steps are to run the Function host (dotnet run --project ./src/Postal.Function/Postal.Function.csproj) and perform the manual smoke test as previously listed.
   - Next actions:
     1) Build src/Postal.Function and resolve any compile errors.
     2) Launch the Function host locally (func start or dotnet run) and monitor logs.
@@ -161,7 +163,8 @@ Source: `D:\Webs\Syntax\PostalExe\trunk\website\web` (SVN working copy `trunk/we
   - New: `connvars.template.asp` (committed template with placeholders; real `connvars.asp` is git-ignored and generated at deploy per W2).
 - Infra changes: none
 - Steps: 1) copy `web/` into the deploy repo layout (suggested: `website/web/`); 2) apply the four edits above; 3) add `connvars.asp` to `.gitignore`; 4) build the deploy file list per websitespec §5 (exclude: `a.asp`, `a.html.txt`, `test2.asp`, `routeupdate.asp`, `search.htm`, `aspnet_client/`, `backup/`, `Thumbs.db`, `_derived*/`, `test.asp`, `Postal.sln`, `.vs/`); 5) diff every deployed page against the original and confirm ONLY the four files above differ.
- - Progress: skeleton created at `D:\Webs\Syntax\PostalExe\migration\website\web` with placeholder files `connvars.template.asp`, `deploy-list.txt`, and `README.md`; `.gitignore` updated to ignore `website/web/connvars.asp`. Changes are committed locally on the current branch (postal-azure-function-worker); recommended: create/push branch `postal-website-deploy` from `main` and rebase these changes as appropriate.
+ - Progress: ✅ COMPLETE 2026-10-16. Skeleton committed as `485c0b3` (connvars.template.asp, deploy-list.txt, README.md, .gitignore). Phase 1 edits committed as `daa681c` on branch `postal-azure-function-worker` (local repo, no remote; shared working copy per this section's rule — no separate `postal-website-deploy` branch needed): `website/web/database.asp` (connvars include + helpers, no secrets), `facingslipspinebush.asp`, `facingslipsroselle.asp` (shared `conn` via include), `web.config` (machineKey removed), `postalss.asp` (routeupdate.asp → updatedelete.asp).
+ - Verification evidence: `git grep -i -E "Fak65k1f75|172\.20\.0\.141|syntaxpostal" HEAD -- website/` → 0 matches (no secrets); `git grep -c "updatedelete.asp" HEAD -- website/web/postalss.asp` → 1; machineKey absent from `web.config` (comment documents removal); all three data pages contain `<!--#include file="database.asp" -->`.
 - Environment: none (no secrets; `connvars.template.asp` contains placeholders only)
 - RBAC / Permissions: none
 - Acceptance criteria: `git diff` between original `web/` and prepared source shows changes in exactly `database.asp`, `facingslipspinebush.asp`, `facingslipsroselle.asp`, `web.config`, `postalss.asp`; no page renders a difference beyond the DB connection and the one nav link; no junk file is in the deploy list.
