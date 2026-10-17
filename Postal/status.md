@@ -21,6 +21,7 @@
   - Files: migration/testdata/generate_sample.ps1
   - Started: 2026-10-17T12:00:00Z
   - Status: In Progress — checking connectivity to dev SQL and Storage
+- ✅ Website lift & shift review (websitespec.md vs trunk/website/web): confirmed NO major code changes needed. Verified against source: conn layer edits in database.asp (line 12 legacy ODBC conn), facingslipspinebush.asp + facingslipsroselle.asp (dead sa/REDACTED_LEGACY_USER conns, lines 4-5); web.config machineKey removal (line 13); one nav fix in postalss.asp line 276 (routeupdate.asp → updatedelete.asp). Junk pages confirmed present (a.asp, test2.asp, routeupdate.asp, search.htm, aspnet_client/). Branch: main (this repo).
 ## Open Design Decisions (from §12)
 
 ## Architecture Notes
