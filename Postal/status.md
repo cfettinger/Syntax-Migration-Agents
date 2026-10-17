@@ -25,6 +25,14 @@
   - Progress log:
     - 2026-10-17T12:34:00Z: dotnet build src/Postal.Api/Postal.Api.csproj succeeded locally (see migration commit).
     - 2026-10-17T12:35:00Z: Postal.Function build initiated (agent will run dotnet build for src/Postal.Function next).
+    - 2026-10-17T12:40:00Z: Code fixes applied to Postal.Function to resolve compile errors:
+      - Removed duplicate placeholder Functions.cs to avoid type duplication.
+      - Added Postal.Function.csproj (net8.0) and Program.cs host bootstrap.
+      - Added Microsoft.Azure.Functions.Worker.Extensions.Storage.Queues package and configured Worker.Sdk analyzer.
+      - Switched SQL usage to Microsoft.Data.SqlClient across projects.
+    - 2026-10-17T12:41:00Z: Agent attempted to run dotnet build but the local terminal task was not executed by the agent. Please run the following in your developer terminal and paste the output into this issue or terminal log:
+      - dotnet build ./src/Postal.Function/Postal.Function.csproj -c Debug
+    - Note: If build succeeds, next steps are to run the Function host (dotnet run --project ./src/Postal.Function/Postal.Function.csproj) and perform the manual smoke test as previously listed.
   - Next actions:
     1) Build src/Postal.Function and resolve any compile errors.
     2) Launch the Function host locally (func start or dotnet run) and monitor logs.
