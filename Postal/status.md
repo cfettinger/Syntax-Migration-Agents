@@ -153,6 +153,7 @@ Source: `D:\Webs\Syntax\PostalExe\trunk\website\web` (SVN working copy `trunk/we
   - New: `connvars.template.asp` (committed template with placeholders; real `connvars.asp` is git-ignored and generated at deploy per W2).
 - Infra changes: none
 - Steps: 1) copy `web/` into the deploy repo layout (suggested: `website/web/`); 2) apply the four edits above; 3) add `connvars.asp` to `.gitignore`; 4) build the deploy file list per websitespec §5 (exclude: `a.asp`, `a.html.txt`, `test2.asp`, `routeupdate.asp`, `search.htm`, `aspnet_client/`, `backup/`, `Thumbs.db`, `_derived*/`, `test.asp`, `Postal.sln`, `.vs/`); 5) diff every deployed page against the original and confirm ONLY the four files above differ.
+ - Progress: skeleton created at `D:\Webs\Syntax\PostalExe\migration\website\web` with placeholder files `connvars.template.asp`, `deploy-list.txt`, and `README.md`; `.gitignore` updated to ignore `website/web/connvars.asp`. Changes are committed locally on the current branch (postal-azure-function-worker); recommended: create/push branch `postal-website-deploy` from `main` and rebase these changes as appropriate.
 - Environment: none (no secrets; `connvars.template.asp` contains placeholders only)
 - RBAC / Permissions: none
 - Acceptance criteria: `git diff` between original `web/` and prepared source shows changes in exactly `database.asp`, `facingslipspinebush.asp`, `facingslipsroselle.asp`, `web.config`, `postalss.asp`; no page renders a difference beyond the DB connection and the one nav link; no junk file is in the deploy list.
