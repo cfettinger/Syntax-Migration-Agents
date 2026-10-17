@@ -197,6 +197,8 @@ Source: `D:\Webs\Syntax\PostalExe\trunk\website\web` (SVN working copy `trunk/we
 - Estimated effort: 1 h
 - Commit message template: `feat(website): add connvars.asp deploy-time generator (secrets out of repo)`
 - Status.md update: `✅ W2 connvars.asp generated at deploy time; secrets never committed; branch postal-website-deploy`
+ - Progress: ✅ COMPLETE 2026-10-16. Committed as `75a561b` in the migration repo working copy (no separate branch — local repo, per user): `infra/web/gen-connvars.ps1` (SQLOLEDB render, fail-fast on missing env vars, no-placeholder-survival check, password never printed), `.github/workflows/deploy-website.yml` (active `connvars-generator` job runs generator with placeholder values, asserts values in output with the password line excluded from logs, `git check-ignore` on `connvars.asp`, repo secret scan for legacy password/machineKey/SAS tokens; W5 OIDC zip-deploy job stubbed behind W3/W4), `testdata/connvars.sample.env` (placeholders only).
+ - Verification evidence (local, 2026-10-16): generator run with placeholders → `connvars.asp written ... (server=postal-db-EXAMPLE, db=postal_example, user=postalweb)` + `Password: [redacted]`, rendered file contains `Provider=SQLOLEDB;Data Source=tcp:postal-db-EXAMPLE,1433;Initial Catalog=postal_example;`; missing-var run exits 1 with `Missing required environment variables: POSTAL_DB_PASSWORD`; `git check-ignore -v website/web/connvars.asp` → `.gitignore:4`; `git grep -i Fak65k1f75` → 0 matches. Pipeline will re-run these on push (repo must be pushed to a remote with Actions enabled for the CI job itself to run).
 
 ### W3 — SQL login `postalweb` + least-privilege grants
 - Title: Create website SQL login and grants (run by ops on shared DB)
