@@ -10,12 +10,16 @@
 
 ## Completed (✅)
 
+- ✅ W1 — Website Phase 1 edits applied (2026-10-16). 5 files changed, junk excluded. Commits `485c0b3` (skeleton) + `daa681c` (edits) on branch `postal-azure-function-worker`. Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot). Detail + verification evidence in the W1 block below.
+- ✅ W2 — connvars.asp deploy-time generator + CI generator job (2026-10-16). Secrets never committed. Commit `75a561b` on branch `postal-azure-function-worker`. Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot). Detail + verification evidence in the W2 block below.
+- ✅ Website lift & shift review (websitespec.md vs trunk/website/web): confirmed NO major code changes needed. Verified against source: conn layer edits in database.asp (line 12 legacy ODBC conn), facingslipspinebush.asp + facingslipsroselle.asp (dead sa/REDACTED_LEGACY_USER conns, lines 4-5); web.config machineKey removal (line 13); one nav fix in postalss.asp line 276 (routeupdate.asp → updatedelete.asp). Junk pages confirmed present (a.asp, test2.asp, routeupdate.asp, search.htm, aspnet_client/). Branch: main (this repo). Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot).
+
 ## In Progress / Pending (🟡)
 
 - Created migration scaffold at D:\Webs\Syntax\PostalExe\migration (new Git repo). Branch: postal-azure-function-worker (scaffolded minimal Api + Function projects).
-- IMPLEMENTATION IN PROGRESS: API endpoints for ImportJob and SAS minting (POST /api/imports) — in progress on branch postal-azure-function-worker (started by GitHub Copilot). Files: src/Postal.Api/Program.cs, src/Postal.Api/Data/ImportJobRepository.cs, src/Postal.Api/Services/BlobSasService.cs
-- IMPLEMENTATION IN PROGRESS: API endpoints /api/imports/{jobId}/complete and /api/imports/{jobId}/sas-refresh — in progress on branch postal-azure-function-worker. Files: src/Postal.Api/Program.cs
-- PLANNED: Website deployment (websitespec.md lift & shift, `postal-web`). Detailed handoff TODOs W1–W7 are in the section "Website Deployment TODOs" below. Next pickable task: W1 (Phase 1 source edits). All artifacts live in the central shared workspace so other agents can participate; tasks run from the repository's central checkout on `main`.
+- IMPLEMENTATION IN PROGRESS: API endpoints for ImportJob and SAS minting (POST /api/imports) — in progress on branch postal-azure-function-worker (started by GitHub Copilot). Files: src/Postal.Api/Program.cs, src/Postal.Api/Data/ImportJobRepository.cs, src/Postal.Api/Services/BlobSasService.cs. Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot).
+- IMPLEMENTATION IN PROGRESS: API endpoints /api/imports/{jobId}/complete and /api/imports/{jobId}/sas-refresh — in progress on branch postal-azure-function-worker. Files: src/Postal.Api/Program.cs. Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot).
+- PLANNED: Website deployment (websitespec.md lift & shift, `postal-web`). Detailed handoff TODOs W1–W7 are in the section "Website Deployment TODOs" below. Next pickable task: **W3** (SQL login `postalweb` + least-privilege grants). W1 and W2 are complete (see Completed section above). All artifacts live in the central shared workspace so other agents can participate; tasks run from the repository's central checkout on `main`. Agent: unassigned (next to pick up W3 — note agent name here when starting).
  - 7E1 Manual smoke test: generate sample.wrk and run end-to-end import
   - Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot)
   - Branch: postal-azure-function-worker
@@ -76,7 +80,6 @@
     1) Build src/Postal.Function and resolve any compile errors.
     2) Launch the Function host locally (func start or dotnet run) and monitor logs.
     3) Execute manual smoke test steps: generate sample.wrk, POST /api/imports to get SAS, upload sample to SAS URL, POST /api/imports/{jobId}/complete, verify queue message and let the Function process the job. Record evidence (DB row counts, logs) before marking this task complete.
-- ✅ Website lift & shift review (websitespec.md vs trunk/website/web): confirmed NO major code changes needed. Verified against source: conn layer edits in database.asp (line 12 legacy ODBC conn), facingslipspinebush.asp + facingslipsroselle.asp (dead sa/REDACTED_LEGACY_USER conns, lines 4-5); web.config machineKey removal (line 13); one nav fix in postalss.asp line 276 (routeupdate.asp → updatedelete.asp). Junk pages confirmed present (a.asp, test2.asp, routeupdate.asp, search.htm, aspnet_client/). Branch: main (this repo).
 ## Open Design Decisions (from §12)
 
 ## Architecture Notes
@@ -202,6 +205,7 @@ Source: `D:\Webs\Syntax\PostalExe\trunk\website\web` (SVN working copy `trunk/we
 - Steps: 1) copy `web/` into the deploy repo layout (suggested: `website/web/`); 2) apply the four edits above; 3) add `connvars.asp` to `.gitignore`; 4) build the deploy file list per websitespec §5 (exclude: `a.asp`, `a.html.txt`, `test2.asp`, `routeupdate.asp`, `search.htm`, `aspnet_client/`, `backup/`, `Thumbs.db`, `_derived*/`, `test.asp`, `Postal.sln`, `.vs/`); 5) diff every deployed page against the original and confirm ONLY the four files above differ.
  - Progress: ✅ COMPLETE 2026-10-16. Skeleton committed as `485c0b3` (connvars.template.asp, deploy-list.txt, README.md, .gitignore). Phase 1 edits committed as `daa681c` on branch `postal-azure-function-worker` (local repo, no remote; shared working copy per this section's rule — no separate `postal-website-deploy` branch needed): `website/web/database.asp` (connvars include + helpers, no secrets), `facingslipspinebush.asp`, `facingslipsroselle.asp` (shared `conn` via include), `web.config` (machineKey removed), `postalss.asp` (routeupdate.asp → updatedelete.asp).
  - Verification evidence: `git grep -i -E "REDACTED_DB_PASSWORD|172\.20\.0\.141|syntaxpostal" HEAD -- website/` → 0 matches (no secrets); `git grep -c "updatedelete.asp" HEAD -- website/web/postalss.asp` → 1; machineKey absent from `web.config` (comment documents removal); all three data pages contain `<!--#include file="database.asp" -->`. 
+ - Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot) — completed 2026-10-16; no follow-up agent in progress.
 - Environment: none (no secrets; `connvars.template.asp` contains placeholders only)
 - RBAC / Permissions: none
 - Acceptance criteria: `git diff` between original `web/` and prepared source shows changes in exactly `database.asp`, `facingslipspinebush.asp`, `facingslipsroselle.asp`, `web.config`, `postalss.asp`; no page renders a difference beyond the DB connection and the one nav link; no junk file is in the deploy list.
@@ -228,6 +232,7 @@ Source: `D:\Webs\Syntax\PostalExe\trunk\website\web` (SVN working copy `trunk/we
 - Status.md update: `✅ W2 connvars.asp generated at deploy time; secrets never committed; branch postal-website-deploy`
  - Progress: ✅ COMPLETE 2026-10-16. Committed as `75a561b` in the migration repo working copy (no separate branch — local repo, per user): `infra/web/gen-connvars.ps1` (SQLOLEDB render, fail-fast on missing env vars, no-placeholder-survival check, password never printed), `.github/workflows/deploy-website.yml` (active `connvars-generator` job runs generator with placeholder values, asserts values in output with the password line excluded from logs, `git check-ignore` on `connvars.asp`, repo secret scan for legacy password/machineKey/SAS tokens; W5 OIDC zip-deploy job stubbed behind W3/W4), `testdata/connvars.sample.env` (placeholders only).
  - Verification evidence (local, 2026-10-16): generator run with placeholders → `connvars.asp written ... (server=postal-db-EXAMPLE, db=postal_example, user=postalweb)` + `Password: [redacted]`, rendered file contains `Provider=SQLOLEDB;Data Source=tcp:postal-db-EXAMPLE,1433;Initial Catalog=postal_example;`; missing-var run exits 1 with `Missing required environment variables: POSTAL_DB_PASSWORD`; `git check-ignore -v website/web/connvars.asp` → `.gitignore:4`; `git grep -i '<REDACTED_DB_PASSWORD>'` → 0 matches. Pipeline will re-run these on push (repo must be pushed to a remote with Actions enabled for the CI job itself to run).
+ - Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot) — completed 2026-10-16; no follow-up agent in progress. W5 (OIDC zip-deploy) is the follow-up and remains unassigned.
 
 ### W3 — SQL login `postalweb` + least-privilege grants
 - Title: Create website SQL login and grants (run by ops on shared DB)
