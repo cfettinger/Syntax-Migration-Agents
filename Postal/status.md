@@ -158,3 +158,11 @@ Postal Migrator agent responsibilities
   - Status: parsing, batching, SqlBulkCopy and post-import procedures implemented. Remaining: queue visibility renewal and managed-identity Sql AccessToken (planned follow-up).
 
 If you approve these steps I will implement the API SAS endpoints next and update status.md with progress entries as I work.
+
+<!-- appended by Postal Migrator -->
+
+## Recent Automated Checks
+
+- 2026-10-17T12:10:00Z — Dev server connectivity: TCP to REDACTED_AZURE_SQL_HOSTNAME.public.0321e1ea10c5.database.windows.net:3342 succeeded (Test-NetConnection). Azure CLI (az) not available in this environment; interactive AAD sign-in (az login or Visual Studio) required locally for DefaultAzureCredential to mint SAS via BlobSasService.
+
+<!-- end appended -->
