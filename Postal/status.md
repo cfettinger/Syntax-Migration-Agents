@@ -15,6 +15,7 @@
 - Created migration scaffold at D:\Webs\Syntax\PostalExe\migration (new Git repo). Branch: postal-azure-function-worker (scaffolded minimal Api + Function projects).
 - IMPLEMENTATION IN PROGRESS: API endpoints for ImportJob and SAS minting (POST /api/imports) — in progress on branch postal-azure-function-worker (started by GitHub Copilot). Files: src/Postal.Api/Program.cs, src/Postal.Api/Data/ImportJobRepository.cs, src/Postal.Api/Services/BlobSasService.cs
 - IMPLEMENTATION IN PROGRESS: API endpoints /api/imports/{jobId}/complete and /api/imports/{jobId}/sas-refresh — in progress on branch postal-azure-function-worker. Files: src/Postal.Api/Program.cs
+- PLANNED: Website deployment (websitespec.md lift & shift, `postal-web`). Detailed handoff TODOs W1–W7 are in the section "Website Deployment TODOs" below. Next pickable task: W1 (Phase 1 source edits). No worktrees — tasks run on the shared working copy / this repo on main.
 - 7E1 Manual smoke test: generate sample.wrk and run end-to-end import
   - Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot)
   - Branch: postal-azure-function-worker
