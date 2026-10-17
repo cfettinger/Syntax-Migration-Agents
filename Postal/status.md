@@ -92,44 +92,21 @@ Postal Migrator agent responsibilities
   - Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot)
   - Branch: postal-azure-function-worker
   - Files: src/Postal.Api/Program.cs, src/Postal.Api/Data/ImportJobRepository.cs, src/Postal.Api/Services/BlobSasService.cs
-  - Started: 2026-10-17T00:00:00Z
+  - Started: 2026-10-17T12:00:00Z
   - Status: core implementation complete; needs local validation against storage and DB.
 
 - 🟡 API: POST /api/imports/{jobId}/complete and /sas-refresh
   - Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot)
   - Branch: postal-azure-function-worker
   - Files: src/Postal.Api/Program.cs
-  - Started: 2026-10-17T00:00:00Z
+  - Started: 2026-10-17T12:00:00Z
   - Status: implemented; needs integration test to confirm queue enqueue and blob checks.
 
 - 🟡 Function: ImportWorker core import flow
   - Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot)
   - Branch: postal-azure-function-worker
   - Files: src/Postal.Function/ImportWorker.cs
-  - Started: 2026-10-17T00:00:00Z
-  - Status: parsing, batching, SqlBulkCopy and post-import procedures implemented. Remaining: queue visibility renewal and managed-identity Sql AccessToken (planned follow-up).
-
-## Current In-Progress Work
-
-- 7E1 API: POST /api/imports (create ImportJob + mint SAS)
-  - Agent: cfettinger / GitHub Copilot
-  - Branch: postal-azure-function-worker
-  - Files: src/Postal.Api/Program.cs, src/Postal.Api/Data/ImportJobRepository.cs, src/Postal.Api/Services/BlobSasService.cs
-  - Started: 2026-10-17T00:00:00Z
-  - Status: core implementation complete; needs local validation against storage and DB.
-
-- 7E1 API: POST /api/imports/{jobId}/complete and /sas-refresh
-  - Agent: cfettinger / GitHub Copilot
-  - Branch: postal-azure-function-worker
-  - Files: src/Postal.Api/Program.cs
-  - Started: 2026-10-17T00:00:00Z
-  - Status: implemented; needs integration test to confirm queue enqueue and blob checks.
-
-- 7E1 Function: ImportWorker core import flow
-  - Agent: cfettinger / GitHub Copilot
-  - Branch: postal-azure-function-worker
-  - Files: src/Postal.Function/ImportWorker.cs
-  - Started: 2026-10-17T00:00:00Z
+  - Started: 2026-10-17T12:00:00Z
   - Status: parsing, batching, SqlBulkCopy and post-import procedures implemented. Remaining: queue visibility renewal and managed-identity Sql AccessToken (planned follow-up).
 
 If you approve these steps I will implement the API SAS endpoints next and update status.md with progress entries as I work.
