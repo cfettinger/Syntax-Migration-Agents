@@ -333,28 +333,34 @@ Postal Migrator agent responsibilities
 
 ## Current In-Progress Work
 
-- 🟡 API: POST /api/imports (create ImportJob + mint SAS)
+- ✅ API: POST /api/imports (create ImportJob + mint SAS)
   - Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot)
   - Branch: postal-azure-function-worker
-  - Files: src/Postal.Api/Program.cs, src/Postal.Api/Data/ImportJobRepository.cs, src/Postal.Api/Services/BlobSasService.cs
+  - Files: src/Postal.Api/Program.cs, src/Postal.Api/Data/ImportJobRepository.cs, src/Postal.Api/Services/BlobSasService.cs, src/Postal.Api/Services/ImportJobService.cs
   - Started: 2026-10-17T12:00:00Z
-  - Status: core implementation complete; needs local validation against storage and DB.
+  - Progress: ✅ COMPLETE 2026-10-17
+  - Evidence: end-to-end operator smoke test (7E1) — job created, SAS minted, sample.wrk uploaded, import processed. Bug found and fixed during extraction: POST response now uses the repo-canonical BlobName (imports/{jobId}) instead of reconstructing a path with the original filename, keeping it consistent with /complete and ImportWorker.
 
-- 🟡 API: POST /api/imports/{jobId}/complete and /sas-refresh
+- ✅ API: POST /api/imports/{jobId}/complete and /sas-refresh
   - Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot)
   - Branch: postal-azure-function-worker
-  - Files: src/Postal.Api/Program.cs
+  - Files: src/Postal.Api/Services/ImportJobService.cs, src/Postal.Api/Program.cs, tests/Postal.Api.Tests/ImportJobServiceIntegrationTests.cs
   - Started: 2026-10-17T12:00:00Z
-  - Status: implemented; needs integration test to confirm queue enqueue and blob checks.
+  - Progress: ✅ COMPLETE 2026-10-17
+  - Manual verification: 7E1 smoke test confirmed blob existence/empty checks, 404/409 paths, and queue enqueue.
+  - Testable refactor: endpoint logic extracted into ImportJobService (outcome enums: CompleteJobOutcome / RefreshSasOutcome) with static queue peek/delete helpers; Program.cs endpoints are thin result delegators.
+  - Integration tests: tests/Postal.Api.Tests (xunit, 7 tests: enqueue-once, missing-blob 400, running-job 409, unknown-job 404, refresh OK/409/404). Build-verified (0 errors, 0 warnings) 2026-10-17; NOT executed (operator-run per instruction). Tests early-return with a SKIPPED log line unless POSTAL_DB_CONN and STORAGE_ACCOUNT_URL env vars are set. Run locally: dotnet test tests/Postal.Api.Tests/Postal.Api.Tests.csproj with those two env vars pointing at dev storage and dev SQL.
 
 - 🟡 Function: ImportWorker core import flow
   - Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot)
   - Branch: postal-azure-function-worker
   - Files: src/Postal.Function/ImportWorker.cs
   - Started: 2026-10-17T12:00:00Z
-  - Status: parsing, batching, SqlBulkCopy and post-import procedures implemented. Remaining: queue visibility renewal and managed-identity Sql AccessToken (planned follow-up).
-
-If you approve these steps I will implement the API SAS endpoints next and update status.md with progress entries as I work.
+  - Status: parsing, batching, SqlBulkCopy and post-import procedures implemented (verified end-to-end in 7E1 smoke test). Remaining hardening:
+    1. Queue visibility renewal for long batches (long-receive + UpdateMessage or periodic renewal)
+    2. Managed-identity SQL access: DefaultAzureCredential AccessToken into SqlConnection (POSTAL_DB_CONN fallback for local dev)
+    3. Make BatchSize (currently 1000) and max retry count configurable via settings
+    4. App Insights telemetry hookup
 
 <!-- appended by Postal Migrator -->
 
