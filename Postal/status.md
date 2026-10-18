@@ -374,4 +374,6 @@ Postal Migrator agent responsibilities
 
 - 2026-10-17T12:10:00Z — Dev server connectivity: TCP to REDACTED_AZURE_SQL_HOSTNAME.public.0321e1ea10c5.database.windows.net:3342 succeeded (Test-NetConnection). Azure CLI (az) not available in this environment; interactive AAD sign-in (az login or Visual Studio) required locally for DefaultAzureCredential to mint SAS via BlobSasService.
 
+- 2026-10-17T23:15:00Z — Repo README refresh: `README.md` in the migration local repo (D:\Webs\Syntax\PostalExe\migration, branch postal-azure-function-worker) rewritten to mirror this tracker. Documents the four projects (legacy PostalExe desktop importer, legacy ASP website lift & shift, Postal.Api + Postal.Function + integration tests, and the Syntax-Migration-Agents tracking workspace), local run instructions, repository structure, and current status (7E1 smoke ✅, ImportWorker hardening 🟡, next pickable W3). No secrets. Committed as `84b2868` (local branch, no push — local repo). Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot).
+
 <!-- end appended -->
