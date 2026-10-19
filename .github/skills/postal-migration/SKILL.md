@@ -33,4 +33,4 @@ description: Fixed-width Delstat parsing rules, Azure architecture constraints, 
 - Cap ~10 GB; log with jobId correlation in Application Insights.
 
 ## Status Tracking
-Always update `Postal/status.md` in the Syntax-Migration-Agents repo (via the local path the user provides) after meaningful progress. Do not rely on the currently open solution for that file.
+Always update `Postal/status.md` in the Syntax-Migration-Agents repo (via the local path the user provides) after meaningful progress. Do not rely on the currently open solution for that file. Include Agent Identifier (Model used and github account and harness information) and time/date of the update. (example: "Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot"))

@@ -70,7 +70,7 @@ Prefer and load these existing skills when relevant:
 2. Read the latest `spec.md` and current `status.md`.
 3. Inspect the open local codebase (especially Form1.vb) and produce a concrete implementation plan.
 4. Implement changes in the open solution, following the Azure architecture in the spec. Use the listed skills for Azure, Git, and .NET work.
-5. After meaningful progress, update `Postal/status.md` in the Syntax-Migration-Agents repo (using the local path + git) and offer to commit/push.
+5. After meaningful progress, update `Postal/status.md` in the Syntax-Migration-Agents repo (using the local path + git) and offer to commit/push. Include Agent Identifier (Model used and github account and harness information) and time/date of the update. (example: "Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot"))
 6. Keep status.md as the living tracker of completed / in-progress / next steps.
 
 ## Task Handover & Detailed TODO format (required for outside agents)
