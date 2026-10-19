@@ -1,6 +1,6 @@
 # Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL — Implementation Status
 
-**Last Updated:** 2026-10-17  
+**Last Updated:** 2026-10-19  
 **Spec Version:** 1.2  
 **Implementation Phase:** Implementation — API + Function complete; manual smoke test verified 2026-10-17
 
@@ -260,6 +260,11 @@ Source: `D:\Webs\Syntax\PostalExe\trunk\website\web` (SVN working copy `trunk/we
 - Estimated effort: 0.5 h (script) + 0.5 h (ops run)
 - Commit message template: `feat(infra): add postalweb least-privilege login script and grant verification`
 - Status.md update: `✅ W3 postalweb login + grants created on dev (prod at cutover); grants verified; script infra/sql/003`
+- Progress:
+  - 2026-10-19T13:30:00Z — W3 SQL scripts authored (agent: Postal Migrator - GPT-5 Mini, cfetching / GitHub Copilot). Added to migration repo `D:\Webs\Syntax\PostalExe\migration` (branch `postal-azure-function-worker`):
+    - `infra/sql/003-create-postalweb-login.sql` — idempotent (`IF NOT EXISTS` guards on server login + database user; additive grants). Applies the exact websitespec §7 grant set: SELECT on Delstat/Delivery/DelstatWeb/DelstatWebBoth/DistrictLookup/DistrictInfo/DistrictLabels; UPDATE on DelstatWeb/DelstatWebBoth/DistrictInfo; INSERT+UPDATE+DELETE on DistrictLabels; INSERT+DELETE on DistrictLookup; EXECUTE on Postalweb/Postalwebboth. Explicitly NOT granted: ImportJob, Delstat DML, TRUNCATE, db_owner. Password is a `<POSTAL_DB_PASSWORD>` placeholder (ops injects the fresh Key Vault value at run time — never committed).
+    - `infra/sql/004-verify-postalweb-grants.sql` — read-mostly verification (all DML probes wrapped in always-rolled-back transactions). Per-check PASS/FAIL via TRY/CATCH + `HAS_PERMS_BY_NAME`: user/login exist; SELECT on all 7 tables; UPDATE on the 3 granted tables; DistrictLabels full CRUD; DistrictLookup INSERT+DELETE and NO UPDATE; EXECUTE on both SPs; negative checks (Delstat read-only, no CONTROL, not a role, not db_owner, no ImportJob access).
+  - Status: 🟡 scripts authored + committed to repo; **pending ops run** on dev DB (then prod at cutover) and a green `004` verification pass. Next pickable after W3 ops run: **W4** (Bicep/azd `postal-web` Windows App Service).
 
 ### W4 — Bicep/azd: `postal-web` Windows App Service
 - Title: IaC for postal-web App Service (Windows, 32-bit, Classic, Entra auth)
