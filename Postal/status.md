@@ -1,8 +1,8 @@
 # Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL — Implementation Status
 
-**Last Updated:** 2026-10-20T10:50:00Z  
+**Last Updated:** 2026-10-20T11:30:00Z  
 **Spec Version:** 1.2  
-**Implementation Phase:** Implementation — API + Function + hardening complete; Azure storage RBAC validated ✅; deploying Function/App Service next (2026-10-20)
+**Implementation Phase:** Implementation — API + Function + hardening complete ✅; Azure storage RBAC validated ✅; Bicep/infra templates validated locally ✅; managed identity infrastructure online ✅; **BLOCKER: B1 quota exhausted** → resolve first, then deploy (2026-10-20)
 
 > This is a living tracker. Update it as tasks complete. The design spec lives in `spec.md`.
 > 
@@ -113,62 +113,110 @@ Notes:
 
 ## Next Immediate Steps (Priority Order)
 
-The steps below are written as isolated, testable tasks so an outside engineer or automation agent can pick them up and complete them. Each task includes acceptance criteria and required artifacts.
+**Status as of 2026-10-20T11:30:00Z**: Core importer API + Function implementation ✅ complete and locally smoke-tested; Bicep/azd infra templates ✅ authored and locally validated (`az bicep build exit 0`); managed identity RBAC ✅ verified on storage account; Azure infrastructure (SQL, Storage, Plan, Identity) ✅ exists and verified online.
 
-1) Implement ImportJob DB objects and deployment script
-   - Files: infra/sql/001-create-importjob.sql (exists), add 002-create-delstat-schema.sql if Delstat DDL is required for testing.
-   - Acceptance: script runs against dev DB without secrets and creates ImportJob table and necessary indexes.
-   - Owner: infra / DBA
-   - Progress: ✅ COMPLETE 2026-10-17 — infra/sql/001-create-importjob.sql committed (`d09259a`); ImportJob table live in dev DB (used by the completed manual smoke test).
+**CURRENT BLOCKER:** B1 AppServicePlan quota exhausted → Cannot deploy Function/Web App yet.
 
-2) API: POST /api/imports (create job + return user-delegation SAS)
-   - Implement in src/Postal.Api:
-     - Validate payload { originalFileName, sizeBytes } and reject >10GB.
-     - Insert ImportJob row (Status=Queued) using POSTAL_DB_CONN.
-     - Mint user-delegation SAS scoped to blobName (imports/{jobId}/{originalFileName}) with Create+Write permissions, expiry <= 1h. Use DefaultAzureCredential and Storage SDK; requires STORAGE_ACCOUNT_URL and managed identity with Storage Blob Delegator role.
-     - Return JSON: { jobId, blobName, sasUrl, expiresUtc }
-   - Acceptance: end-to-end local test where API returns a valid SAS URL and a block upload (using azure/storage-blob client or az storage blob upload-batch with SAS) succeeds to the imports container.
-   - Owner: backend dev
-   - Progress: ✅ COMPLETE 2026-10-17 — implemented in src/Postal.Api/Program.cs (`c2cc07d`); valid SAS minted and sample.wrk uploaded during the manual smoke test.
+**Actionable next steps (in priority order):**
 
-3) API: POST /api/imports/{jobId}/complete
-   - Implement server-side check: confirm blob exists and SizeBytes > 0, ensure ImportJob.Status is Queued (409 if Running/Succeeded), set or ensure Queued and enqueue jobId into the imports queue exactly once.
-   - Response: 200 OK or 409 conflict with descriptive error.
-   - Acceptance: after uploading via SAS and calling /complete, a single queue message containing the GUID string is present in the imports queue.
-   - Owner: backend dev
-   - Progress: ✅ COMPLETE 2026-10-17 — implemented in src/Postal.Api/Program.cs (`c2cc07d`); Function consumed the enqueued job during the manual smoke test.
+### **CRITICAL (Unblocks all remaining work)**
 
-4) API: POST /api/imports/{jobId}/sas-refresh
-   - Implement refresh to mint a replacement SAS for the same blob while job is still Queued and upload is in progress.
-   - Acceptance: client can resume a blocked upload by obtaining a new SAS and completing upload blocks.
-   - Owner: backend dev
-   - Progress: ✅ COMPLETE 2026-10-17 — implemented in src/Postal.Api/Program.cs (`c2cc07d`).
+**P0: Resolve B1 Quota Blocker (Owner: ops/DevOps)**
+   - Choose one of:
+     a) **Recommended:** Request subscription quota increase from Azure Support for B1 AppServicePlan tier (target: +1 instance for importer stack).
+     b) **Workaround:** Modify Bicep template `infra/bicep/main.bicep` to deploy to Free (F1) or Shared (D1) tier for testing purposes. Note: Free/Shared are not production-grade; use only for dev validation.
+     c) **Alternative:** Verify if B2/B3 tier has available quota and adjust to optimize cost trade-off.
+   - Effort: 0.5–2 hours (depends on Azure Support response time).
+   - Unblocks: W4, W5, W6, W7, and all integration deployment tasks.
+   - **Evidence required:** Screenshot of deployment success or Azure Portal resource confirmed created.
 
-5) Azure Function worker improvements (src/Postal.Function)
-   - Ensure queue message format is jobId string. Current ImportWorker implements parsing and bulk insert.
-   - Add visibility renewal: use Azure.Storage.Queues client to ReceiveMessages with long visibility and periodically UpdateMessageAsync to renew until job finishes or fails.
-   - Switch DB auth to managed identity: acquire access token via DefaultAzureCredential and set SqlConnection.AccessToken for production. Keep POSTAL_DB_CONN for dev interactive testing.
-   - Add configurable BatchSize, MaxRetries, and Telemetry to AppInsights. Ensure RowsWritten resume logic is resilient and truncate-only-on-first-run.
-   - Acceptance: worker correctly claims job (conditional DB update), processes blob, writes Delstat, executes Postalweb procedures, and marks job Succeeded; telemetry logs jobId and counts.
-   - Owner: backend dev
-   - Progress: ✅ COMPLETE 2026-10-17 — src/Postal.Function/ImportWorker.cs (`9f848f4`): atomic job claim, fixed-width/CRLF parsing, chunked bulk insert (batch 1000), RowsWritten resume with truncate-only-first-run, EXEC Postalweb/Postalwebboth, status Succeeded — verified in the manual smoke test. Remaining hardening (queue visibility renewal, configurable BatchSize/MaxRetries, AppInsights) tracked as follow-up.
+### **HIGH (Post-quota fix)**
 
-6) Testing & QA
-   - Unit tests for parser functions (fixed-width vs CRLF), malformed record failure cases, and resume skipping logic.
-   - Integration test: local Azurite or dev Storage account + dev DB to run an end-to-end import of a small sample file (include a sample delstat.wrk in /testdata).
-   - Acceptance: automated test runs pass locally in dev environment and in CI.
-   - Progress: 🟡 PARTIAL 2026-10-17 — end-to-end integration verified via the manual smoke test (item 9); automated unit/integration tests still pending.
+**P1: W3 – SQL User Provisioning (Owner: ops/DBA)**
+   - Script location: `infra/sql/003-create-postalweb-login.sql` + `infra/sql/004-grant-postalweb-permissions.sql` (committed, branch `postal-azure-function-worker`).
+   - Steps:
+     1. Connect to Postal DB with SQL admin account (retain existing REDACTED_SQL_ADMIN credential).
+     2. Run 003 script: creates SQL login `postalweb` (managed identity-based).
+     3. Run 004 script: grants INSERT on dbo.Delstat + dbo.ImportJob; EXECUTE on dbo.Postalweb + dbo.Postalwebboth.
+   - Acceptance: Query `SELECT * FROM sys.database_principals WHERE name='postalweb'` returns 1 row; query `sys.database_permissions` shows INSERT/EXECUTE grants.
+   - Effort: 0.5 hours.
+   - **Evidence required:** Script execution output + permission verification queries in status.md update.
 
-7) Infra & CI
-   - Add Bicep/azd templates for Storage (imports container + queue), App Service, Function App, and Azure SQL; include role assignment steps for managed identity (Storage Blob Data Contributor + Storage Blob Delegator) and SQL user provisioning script (run by ops).
-   - CI: GitHub Actions with OIDC token-based login for deployments; secrets only for non-OIDC scenarios stored in repo secrets or Key Vault.
-   - Acceptance: ability to deploy dev stack via CI without injecting long-lived credentials.
-   - Progress: 🟡 PARTIAL 2026-10-20 — website CI pipeline exists (.github/workflows/deploy-website.yml, `75a561b`). Importer-stack Bicep/azd + OIDC CI now authored in the migration repo (branch `postal-azure-function-worker`): `infra/bicep/main.bicep` (Storage `imports` container + queue, App Service API, Function App worker, Azure SQL, App Insights, system-assigned MI with Storage Blob Data Contributor + Storage Blob Delegator), `infra/bicep/main.parameters.json` (non-secret params only; secure `sqlAdminPassword` has no default and is supplied at deploy time), `azure.yaml` (azd project), `.github/workflows/deploy-api-function.yml` (OIDC `azure/login@v2` + `azd provision`/`deploy`; SQL admin password fetched from Key Vault at deploy time, never echoed). `az bicep build` verified **0 errors** (2026-10-20). Remaining: run `azd provision`/deploy to a resource group + ops SQL user provisioning (importer MI + W3 `postalweb`). Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot).
+**P2: W4 – Deploy Function App + Web App (Owner: DevOps/Platform)**
+   - After quota resolved, execute deployment:
+     ```bash
+     cd migration
+     az login
+     azd provision
+     azd deploy
+     ```
+   - Or manual:
+     ```bash
+     az deployment group create \
+       -g Syntax \
+       --template-file infra/bicep/main.bicep \
+       --parameters infra/bicep/main.parameters.json \
+       --parameters sqlAdminPassword='<secure-password-from-keyvault>'
+     ```
+   - Acceptance: Azure Portal shows Web App + Function App running in `Syntax` RG; system-assigned identities created.
+   - Effort: 1 hour + quota resolution time.
+   - **Evidence required:** `az webapp show -g Syntax -n postal-api --query "{id:id, state:state}"` + `az functionapp show -g Syntax -n postal-import --query "{id:id, state:state}"`.
 
-8) Documentation & Handoff
-   - Update README.md with local dev steps, env vars, and how to run the API and Function locally (az login or VS sign-in required).
-   - Update Postal/status.md with a short checklist for each task above as completed items are checked off.
-   - Progress: 🟡 PARTIAL 2026-10-17 — README.md scaffold present (structure + next steps); local-dev env-var checklist still incomplete.
+**P3: W5 – Validate Managed Identity Assignment in Deployed Apps (Owner: DevOps)**
+   - After W4 deployment:
+     ```bash
+     az webapp identity show -g Syntax -n postal-api --query systemAssignedIdentity
+     az functionapp identity show -g Syntax -n postal-import --query systemAssignedIdentity
+     ```
+   - Acceptance: Both commands return non-null principal IDs; confirm they match or include `syntax-main-id` (Principal a9c0e286-ecd6-4c1b-beb4-ead5fdb75481).
+   - Effort: 0.25 hours.
+   - **Evidence required:** Copy of identity query output.
+
+**P4: W6 – Validate SQL Permissions on Deployed Resources (Owner: backend dev/ops)**
+   - After P1 + P4, test connection from Function App to Postgres using managed identity token:
+     1. Deploy a simple test script or curl to Function App: acquire token via `DefaultAzureCredential` for SQL scope (`https://sql.azure.com/`).
+     2. Connect to Postal DB as `postalweb` and verify SELECT/INSERT/EXECUTE grants.
+     3. Run a dry-run import (small sample) to confirm Function can read blob, parse, bulk insert, and execute stored procs without permission errors.
+   - Acceptance: Test script completes without permission errors; ImportJob row created with Status=Succeeded; RowsWritten >= 1.
+   - Effort: 1.5 hours.
+   - **Evidence required:** Function App logs (Application Insights), ImportJob query results, parsed bulk insert counts.
+
+### **MEDIUM (Post-deployment validation)**
+
+**P5: W7 – End-to-End Azure Smoke Test (Owner: backend dev/ops)**
+   - After W4–W6 complete:
+     1. POST to deployed API: `https://<postal-api-app-name>.azurewebsites.net/api/imports` with `{ "originalFileName": "sample.wrk", "sizeBytes": 309 }`.
+     2. Browser download SAS URL and upload sample.wrk.
+     3. POST `/api/imports/{jobId}/complete`.
+     4. Observe Function App process queue message → parse → bulk insert → execute Postalweb procs → mark Succeeded.
+     5. Verify ImportJob.Status=Succeeded and Delstat row count increased.
+   - Acceptance: End-to-end flow succeeds without manual intervention; all logs clean.
+   - Effort: 1 hour.
+   - **Evidence required:** Function App logs, ImportJob query result, screenshot of successful response.
+
+### **LOW (After core deployment)**
+
+**P6: Automated Testing & CI (Branch: postal-test-harness)**
+   - Add unit tests: parser (fixed-width, CRLF), malformed records, resume logic.
+   - Add integration tests: local Azurite + dev DB end-to-end.
+   - Integrate into `.github/workflows/deploy-api-function.yml` CI pipeline.
+   - Effort: 2–3 hours.
+   - Acceptance: CI runs tests on every commit to `postal-azure-function-worker`; all tests pass.
+
+**P7: Documentation & Runbooks (Branch: postal-docs)**
+   - Finalize README.md: local dev setup, env var checklist, how to run API + Function.
+   - Create ops runbook: deploy steps, troubleshooting, rollback procedure.
+   - Update Postal/status.md with final completion checklist.
+   - Effort: 1.5 hours.
+
+**P8: Website Deployment (Separate project; tracked in websitespec.md)**
+   - W1–W2 completed on `postal-website-deploy` branch.
+   - Remaining: Lift & shift hosting to Azure (App Service + CI).
+   - Owner: separate team or later phase.
+
+---
+
+## Completed Task Details (Items 1–9 below for reference)
 
 9) Manual smoke test: generate valid sample .wrk and run end-to-end import (minimal validation)
    - Title: Manual smoke test - sample Delstat import
