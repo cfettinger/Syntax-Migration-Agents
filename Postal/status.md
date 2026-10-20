@@ -23,12 +23,20 @@
 
 ## In Progress / Pending (🟡)
 
-- 🟡 **Azure deployment & ops validation** (resource group `Syntax`, managed identity + Function/App Service + SQL permissions). Status: RBAC storage roles assigned ✅ (2026-10-20). Remaining: Deploy Function App and Web App from Bicep template, confirm managed identity assignment in Azure, validate SQL permissions on deployed resources, run end-to-end smoke test in Azure.
+- 🟡 **Azure deployment & ops validation** (resource group `Syntax`, managed identity + Function/App Service + SQL permissions). Status: RBAC storage roles assigned ✅ (2026-10-20T10:45:00Z); managed identity infrastructure validated ✅; Bicep template locally validated ✅; deployment blocker identified (B1 quota exhausted). Progress:
   - **W3** (SQL login `postalweb` + least-privilege grants) — Scripts authored and committed to migration repo (`infra/sql/003` + `004`) as of 2026-10-19. *Pending:* ops run on dev DB first, then prod at cutover. Commits visible on branch `postal-azure-function-worker`.
-  - **W4** (Bicep/azd Function App + Web App deployment) — Bicep templates authored and validated (`infra/bicep/main.bicep`, `infra/bicep/main.parameters.json`), Azure.yaml and GitHub Actions workflow committed (`az bicep build` exit 0, 0 errors). *Pending:* run `azd up` or `az deployment group create` in target resource group `Syntax` to deploy apps. Agent: Postal Migrator - GitHub Copilot (cfettinger) — created Bicep/azd 2026-10-20.
+  - **W4** (Bicep/azd Function App + Web App deployment) — Bicep templates authored and validated (`infra/bicep/main.bicep`, `infra/bicep/main.parameters.json`), Azure.yaml and GitHub Actions workflow committed (`az bicep build` exit 0, 0 errors). *DEPLOYMENT BLOCKER:* B1 AppServicePlan quota exhausted (Current Limit: 0, Required: 1). *Action required:* request subscription quota increase OR deploy to Free (F1) tier for testing. Agent: Postal Migrator - GitHub Copilot (cfettinger, 2026-10-20T11:15:00Z).
   - **W5** (Managed identity assignment validation in Azure) — After deployment, confirm Function App and Web App system-assigned identity equals or includes `syntax-main-id`. Use `az functionapp identity show` and `az webapp identity show`. *Pending after W4 deployment.*
   - **W6** (SQL permissions validation) — After SQL user `postalweb` is provisioned by ops (W3), confirm SELECT/INSERT/EXECUTE grants via TSQL query or Function import dry-run. *Pending after W3 + W4.*
   - **W7** (Azure smoke test) — Full end-to-end import in cloud: POST /api/imports (Azure App Service) → browser SAS upload → /complete → Function processes → Postalweb procs execute → ImportJob Succeeded. *Pending after W4–W6.*
+  - **8E1 (Managed Identity Smoke Test)** — Validated existing Azure infrastructure without app deployment (2026-10-20T11:20:00Z, commit pending). Evidence:
+    - ✅ `syntax-main-id` (User-Assigned Managed Identity, Principal: a9c0e286-ecd6-4c1b-beb4-ead5fdb75481) exists and active.
+    - ✅ Storage Blob Data Contributor + Storage Blob Delegator roles assigned to `syntax-main-id` on `syntaxstoragev2` scope.
+    - ✅ Azure SQL `Postal` database online with AllowAllAzureIps firewall rule enabled.
+    - ✅ App Service Plan `syntax-app-service` provisioned (B1, but quota exhausted).
+    - ✅ Bicep template locally valid: `az bicep build .../main.bicep` exit 0, 0 errors (only expected BCP081 warning for Storage/queues).
+    - Validation Commands: `az identity show -g Syntax -n syntax-main-id`, `az role assignment list --assignee-object-id a9c0e286-ecd6-4c1b-beb4-ead5fdb75481 --scope <storage-account> --query "[].roleDefinitionName"`, `az sql db list -g Syntax -s syntax-sql --query "[].name"`.
+    - **Status:** Managed identity infrastructure ready for Function/Web App deployment; no app deployment yet due to quota. Agent: Postal Migrator - GitHub Copilot (cfettinger, 2026-10-20T11:20:00Z). Branch: postal-azure-function-worker.
  - 7E1 Manual smoke test: generate sample.wrk and run end-to-end import
   - Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot)
   - Branch: postal-azure-function-worker
