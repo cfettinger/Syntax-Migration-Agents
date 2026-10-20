@@ -8,6 +8,99 @@
 
 ---
 
+## Architecture Overview
+
+The Postal importer is a **queue-driven serverless pipeline** running entirely in Azure with no on-premises components. All data flows through managed services with least-privilege identity-based access.
+
+### 🏗️ Core Components
+
+| Component | Purpose | Tech | Config |
+|-----------|---------|------|--------|
+| **Azure App Service** (Postal.Api) | REST API: create ImportJob, mint SAS, enqueue completion signal | ASP.NET Core 8 minimal API | Managed identity, HTTPS-only, B1+ SKU |
+| **Azure Function App** (Postal.Function) | Queue-triggered worker: claim job, parse fixed-width, bulk-insert Delstat, exec stored procs | .NET 8 isolated worker | Managed identity, queue trigger, visibility renewal |
+| **Azure Storage** (syntaxstoragev2) | Immutable upload container (`imports/`), durable queue (`imports`), audit trail | Standard LRS | Blob + Queue, soft delete, key access disabled |
+| **Azure SQL** (syntax-sql) | Persistent ImportJob tracking, Delstat transaction log, legacy postal data | SQL Server 2022 on Azure | Managed identity auth, firewall allows Azure services |
+| **App Insights** (postal-ai) | Unified telemetry for API + Function logs, metrics, dependencies | Application Insights | Worker SDK integration, key-based instrumentation |
+| **Managed Identity** (syntax-main-id) | Single system identity for all app authentication | User-assigned (recommended) or system-assigned | Storage Blob Data Contributor + Delegator, SQL SELECT/INSERT/EXEC |
+
+### 📊 Data Flow
+
+```
+Browser / Client
+    ↓
+    │ 1. POST /api/imports
+    │    { originalFileName, sizeBytes }
+    ↓
+API (App Service)
+    ├─ Validate file size ≤ 10 GB
+    ├─ Create ImportJob (Status=Queued)
+    ├─ Mint user-delegation SAS ← DefaultAzureCredential + Storage Blob Delegator
+    └─ Return { jobId, blobName, sasUrl, expiresUtc }
+    ↓
+Browser uploads blob via SAS
+    (Create + Write permissions, HTTPS, <1h expiry)
+    ↓
+Browser calls POST /api/imports/{jobId}/complete
+    ↓
+API enqueues jobId into imports queue
+    ↓
+Function App (queue trigger)
+    ├─ Claim job (atomic DB update Status=Running)
+    ├─ Download blob + parse fixed-width Delstat
+    ├─ Bulk-insert into Postal.Delstat (batches of 1000)
+    ├─ Resume on failure: skip already-written rows (count RowsWritten)
+    ├─ EXEC Postalweb + Postalwebboth stored procedures
+    ├─ Set Status = Succeeded (or Failed if exception)
+    ├─ Renew queue message visibility every 120s (600s timeout)
+    └─ Emit telemetry (App Insights)
+    ↓
+API queries ImportJob for final status
+```
+
+### 🔐 Security & Least Privilege
+
+- **No storage account keys** in app code; uses managed identity + SAS for time-limited browser access.
+- **No SQL passwords** in app config; uses DefaultAzureCredential (managed identity or interactive AAD).
+- **No connection strings** in source control; all secrets in Azure Key Vault or App Settings.
+- **RBAC roles:**
+  - **Storage Blob Data Contributor**: READ & WRITE blob data (used by SAS and Function)
+  - **Storage Blob Delegator**: MINT user-delegation SAS (used by API only)
+  - **SQL minimal grants**: `postalweb` user has INSERT on Delstat, SELECT on lookup tables, EXECUTE on `Postalweb` + `Postalwebboth`
+- **Network isolation**: Function + API are backend-only; no public IP exposure for storage/SQL (firewall rules enforce Azure-only access).
+
+### 🔄 Queue & Visibility Renewal
+
+- **Queue message format**: Job UUID string (e.g., `550e8400-e29b-41d4-a716-446655440000`).
+- **Visibility timeout**: 600 seconds; Function renews every 120 seconds to allow long-running imports.
+- **Resume logic**: If Function crashes mid-import, message becomes visible again; Function re-claims and skips already-written rows (by checking `RowsWritten` counter in ImportJob).
+- **Idempotency**: Job claim is atomic (SQL `UPDATE ... WHERE Status = Queued`); only one Function instance can claim a job.
+
+### 📋 ImportJob Lifecycle
+
+```
+Queued
+  ↓ (POST /api/imports)
+  ├─ Created in DB, SAS returned to browser
+  ├─ File uploaded via SAS
+  ↓ (POST /api/imports/{jobId}/complete)
+Running
+  ↓ (Function claims & processes)
+  ├─ Parsing + bulk insert in progress
+  ├─ Queue message visibility renewed periodically
+  ↓ (Success)
+Succeeded
+  ├─ All rows inserted
+  ├─ Stored procedures executed
+  └─ Job complete
+  ↓ (On failure)
+Failed
+  ├─ Exception logged
+  ├─ Message re-queued for retry
+  └─ RowsWritten preserved for resume
+```
+
+---
+
 ## Completed (✅)
 
 - ✅ W1 — Website Phase 1 edits applied (2026-10-16). 5 files changed, junk excluded. Commits `485c0b3` (skeleton) + `daa681c` (edits) on branch `postal-azure-function-worker`. Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot). Detail + verification evidence in the W1 block below.
