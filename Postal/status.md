@@ -392,4 +392,6 @@ Postal Migrator agent responsibilities
 
 - 2026-10-20T10:15:00Z — Repo baseline verification: `dotnet build Postal.sln -c Debug` should be run before Azure deployment and is the build gate for the migration repo. This ensures the API + Function + test projects remain green before resource deployment or CI automation begins. Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot).
 
+- 2026-10-20T10:30:00Z — Item 7 Bicep/azd + OIDC CI authored and build-verified. Added to the migration repo (branch `postal-azure-function-worker`): `infra/bicep/main.bicep`, `infra/bicep/main.parameters.json`, `azure.yaml`, `.github/workflows/deploy-api-function.yml`; updated `infra/README.md` and `.gitignore` (git-ignored `infra/bicep/main.parameters.dev.json`). Verification: `az bicep build --file infra/bicep/main.bicep` → **exit 0, 0 errors** (1 non-blocking warning: `Microsoft.Storage/storageAccounts/queues` has no Bicep type definitions). `main.parameters.json` validated as well-formed JSON; `azure.yaml` + workflow contain no tabs. No secrets in any committed file (secure `sqlAdminPassword` has no default; CI fetches it from Key Vault at deploy time). Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot).
+
 <!-- end appended -->
