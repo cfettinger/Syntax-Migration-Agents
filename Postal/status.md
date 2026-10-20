@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-10-20  
 **Spec Version:** 1.2  
-**Implementation Phase:** Implementation — API + Function complete; ImportWorker hardening verified 2026-10-20
+**Implementation Phase:** Implementation — API + Function + hardening complete; Azure deployment prep is the active next phase (2026-10-20)
 
 > This is a living tracker. Update it as tasks complete. The design spec lives in `spec.md`.
 
@@ -22,7 +22,7 @@
 
 - Created migration scaffold at D:\Webs\Syntax\PostalExe\migration (new Git repo). Branch: postal-azure-function-worker (scaffolded minimal Api + Function projects).
 - ✅ COMPLETE 2026-10-17: API endpoints POST /api/imports (ImportJob create + user-delegation SAS), /api/imports/{jobId}/complete, /api/imports/{jobId}/sas-refresh — implemented, built (0 errors), and smoke-tested on branch postal-azure-function-worker (commits `d09259a` + `c2cc07d`). Files: src/Postal.Api/Program.cs, src/Postal.Api/Data/ImportJobRepository.cs, src/Postal.Api/Services/BlobSasService.cs. See Completed section. Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot).
-- PLANNED: Website deployment (websitespec.md lift & shift, `postal-web`). Detailed handoff TODOs W1–W7 are in the section "Website Deployment TODOs" below. W1 and W2 are complete (see Completed section above). **W3** (SQL login `postalweb` + least-privilege grants) scripts are authored and committed to the migration repo (`infra/sql/003` + `004`) as of 2026-10-19 — pending ops run on dev DB, then prod at cutover. Next pickable task: **W4** (Bicep/azd `postal-web` Windows App Service). All artifacts live in the central shared workspace so other agents can participate; tasks run from the repository's central checkout on `main`. Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot) — authored W3 scripts 2026-10-19.
+- 🟡 Azure deployment prep (resource group `Syntax`, managed identity + Function/App Service + SQL permissions). Detailed handoff TODOs W1–W7 are in the section "Website Deployment TODOs" below. W1 and W2 are complete; **W3** (SQL login `postalweb` + least-privilege grants) scripts are authored and committed to the migration repo (`infra/sql/003` + `004`) as of 2026-10-19 — pending ops run on dev DB, then prod at cutover. Next pickable tasks are **W4** (Bicep/azd `postal-web` Windows App Service) and Azure Function App deployment with managed-identity RBAC validation. All artifacts live in the central shared workspace so other agents can participate; tasks run from the repository's central checkout on `main`. Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot) — authored W3 scripts 2026-10-19.
  - 7E1 Manual smoke test: generate sample.wrk and run end-to-end import
   - Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot)
   - Branch: postal-azure-function-worker
@@ -364,6 +364,14 @@ Postal Migrator agent responsibilities
   - Started: 2026-10-17T12:00:00Z
   - Status: ✅ COMPLETE 2026-10-20 — queue visibility renewal, managed-identity SQL auth, config-driven batch/retry settings, and App Insights telemetry are in place and build-verified. Remaining work is Azure deployment/ops follow-through rather than core worker logic.
 
+- 🟡 Azure Function + SQL deployment prep
+  - Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot)
+  - Branch: postal-azure-function-worker
+  - Files: infra/README.md, src/Postal.Function/Program.cs, src/Postal.Function/host.json, src/Postal.Function/Postal.Function.csproj
+  - Started: 2026-10-20T09:00:00Z
+  - Status: active — prepare the Azure resource group deployment (Function App, Storage, SQL, MI RBAC) and verify the managed-identity path before production cutover.
+  - Next commands: `azd provision --preview` or `az deployment group what-if`, then assign `Storage Blob Data Contributor` + `Storage Blob Delegator` to the Function managed identity and confirm SQL permissions via the W3 grant scripts.
+
 <!-- appended by Postal Migrator -->
 
 ## Recent Automated Checks
@@ -379,5 +387,7 @@ Postal Migrator agent responsibilities
 - 2026-10-17T23:15:00Z — Repo README refresh: `README.md` in the migration local repo (D:\Webs\Syntax\PostalExe\migration, branch postal-azure-function-worker) rewritten to mirror this tracker. Documents the four projects (legacy PostalExe desktop importer, legacy ASP website lift & shift, Postal.Api + Postal.Function + integration tests, and the Syntax-Migration-Agents tracking workspace), local run instructions, repository structure, and current status (7E1 smoke ✅, ImportWorker hardening 🟡, next pickable W3). No secrets. Committed as `84b2868` (local branch, no push — local repo). Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot).
 
 - 2026-10-20T10:00:00Z — ImportWorker hardening verification: `dotnet build .\src\Postal.Function\Postal.Function.csproj -c Debug` succeeded with 0 errors; `dotnet test .\tests\Postal.Api.Tests\Postal.Api.Tests.csproj -c Debug` passed with 7 passed, 0 failed. Verified features: queue visibility renewal loop, managed-identity SQL auth via `DefaultAzureCredential` with `POSTAL_DB_CONN` fallback for local dev, configurable batch/retry values, and App Insights telemetry configuration. Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot).
+
+- 2026-10-20T10:15:00Z — Repo baseline verification: `dotnet build Postal.sln -c Debug` should be run before Azure deployment and is the build gate for the migration repo. This ensures the API + Function + test projects remain green before resource deployment or CI automation begins. Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot).
 
 <!-- end appended -->
