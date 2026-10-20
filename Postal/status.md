@@ -369,10 +369,10 @@ Postal Migrator agent responsibilities
 - 🟡 Azure Function + SQL deployment prep
   - Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot)
   - Branch: postal-azure-function-worker
-  - Files: infra/README.md, src/Postal.Function/Program.cs, src/Postal.Function/host.json, src/Postal.Function/Postal.Function.csproj
+  - Files: infra/bicep/main.bicep, infra/bicep/main.parameters.json, azure.yaml, .github/workflows/deploy-api-function.yml, infra/README.md, src/Postal.Function/Program.cs, src/Postal.Function/host.json, src/Postal.Function/Postal.Function.csproj
   - Started: 2026-10-20T09:00:00Z
-  - Status: active — prepare the Azure resource group deployment (Function App, Storage, SQL, MI RBAC) and verify the managed-identity path before production cutover.
-  - Next commands: `azd provision --preview` or `az deployment group what-if`, then assign `Storage Blob Data Contributor` + `Storage Blob Delegator` to the Function managed identity and confirm SQL permissions via the W3 grant scripts.
+  - Status: active — Bicep/azd + OIDC CI authored and build-verified (`az bicep build` 0 errors, 2026-10-20); remaining is running `azd provision`/deploy to a resource group and verifying the managed-identity path before production cutover.
+  - Next commands: `azd provision` (or `az deployment group what-if --template-file infra/bicep/main.bicep`), then confirm the MI has `Storage Blob Data Contributor` + `Storage Blob Delegator` (assigned by the Bicep) and SQL permissions via the W3 grant scripts.
 
 <!-- appended by Postal Migrator -->
 
