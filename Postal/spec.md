@@ -166,6 +166,36 @@ src/Import.Worker/      # queue consumer or Functions
 
 Deploy with azd/Bicep: validate with `azd provision --preview` (or `az deployment ... what-if`) before applying. Never inline credentials in IaC.
 
+## Deployment slots
+
+**Azure subscription tier B1 does not support deployment slots.** Deploy directly to the production app.
+
+- No staging slot available for swap testing or zero-downtime blue-green.
+- Every `azd deploy` or `az webapp deploy` updates the live app immediately.
+- Blue-green deployments (zero-downtime swaps) require a second App Service plan + app; use only if downtime risk is unacceptable.
+
+**Common deployment methods:**
+
+1. **Azure CLI / azd**  
+   ```bash
+   azd deploy
+   ```  
+   or  
+   ```bash
+   az webapp deploy --resource-group Syntax --name postal-api --src-path <zip-or-folder>
+   ```
+
+2. **Git / GitHub Actions / Azure DevOps**  
+   Configure continuous deployment to the production app.
+
+3. **Zip deploy / VS Code / Visual Studio**  
+   Publish straight to the app; no slot to swap.
+
+4. **Kudu / FTP / Web Deploy**  
+   Upload files directly to the running site.
+
+Every deploy updates the live app. Plan deployments off-peak, communicate outages, and expect brief downtime.
+
 Plan and track progress of the Postal project in `status.md` (this directory) — update it as tasks complete.
 
 App Service settings, not source:

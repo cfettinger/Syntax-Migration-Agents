@@ -76,9 +76,32 @@ Notes:
    - Acceptance: Azure Portal shows Web App + Function App running in `Syntax` RG on shared B1 plan; system-assigned identities created
    - Effort: 1 hour
    - **Evidence required:** `az webapp show -g Syntax -n postal-api --query "{id:id, state:state}"` + `az functionapp show -g Syntax -n postal-worker --query "{id:id, state:state}"`; both should return state='Running'
-   - Unblocks: P1, P2, P3, P4, P5
+       - Unblocks: P1, P2, P3, P4, P5
 
-### **HIGH (Post-quota fix)**
+   ---
+
+   ## Deployment Strategy (B1 Limitation)
+
+   **⚠️ Deployment Slots Not Supported:** Azure subscription tier B1 **does not support deployment slots**. Every deploy updates the live production app directly.
+
+   - No staging slot for swap testing or zero-downtime blue-green.
+   - Each `azd deploy` or `az webapp deploy` updates the live app immediately.
+   - Plan deployments off-peak; communicate outages; expect brief downtime.
+   - Blue-green deployments (zero-downtime) require a second App Service plan + app (not B1 feasible).
+
+   **Supported deployment methods:**
+
+   1. `azd deploy` (recommended for this project)
+   2. `az webapp deploy --resource-group Syntax --name postal-api --src-path <zip-or-folder>`
+   3. GitHub Actions / Azure DevOps to production app (no slot)
+   4. Zip deploy / VS Code / Visual Studio (publish straight to app)
+   5. Kudu / FTP / Web Deploy (direct file upload)
+
+   See `spec.md` → "Deployment slots" for full documentation and migration path if slot support is required.
+
+   ---
+
+   ### **HIGH (Post-quota fix)**
 
 **P1: W3 – SQL User Provisioning (Owner: ops/DBA)**
    - Script location: `infra/sql/003-create-postalweb-login.sql` + `infra/sql/004-grant-postalweb-permissions.sql` (committed, branch `postal-azure-function-worker`).
