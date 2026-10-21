@@ -34,6 +34,7 @@
 ## Open Design Decisions (from §12)
 
 ## Architecture Notes
+.NET 8.0 and .NET 9.0 will be depreciated by Azure on 11/10/2026. The current implementation uses .NET 8 isolated worker for the Function App. The team must migrate to .NET 10 isolated worker before the deprecation date to ensure continued support and security updates.
 
 ## Databases (inventory & auth)
 
