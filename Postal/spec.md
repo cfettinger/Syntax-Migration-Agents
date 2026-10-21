@@ -1,12 +1,61 @@
 # Spec: Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL
 
-Version 1.2, 2026-10-13 (v1.2: clarified 0-based field offsets; ZipCode begins at index 1)
+Version 1.3, 2026-10-21 (v1.3: added .NET 10 upgrade policy and segmented handoff tasks due .NET 8 LTS EOL on 2026-11-10)
 
 > **Source-app note:** `trunk/Form1.vb` is a **VB.NET WinForms** app (.NET Framework, `System.Data.SqlClient`) — **not VB6/COM**. No COM DLLs or OLE DB. Moving parts: fixed-width parser, `TRUNCATE` + row inserts into `Delstat`, then `EXEC Postalweb` and `EXEC Postalwebboth`. "VB6" in older notes means this desktop app.
 
 > **Planning & tracking:** The Postal implementation plan and progress are maintained in [`status.md`](status.md) alongside this spec. Use it to plan the work and track progress as tasks complete.
 
-Read this file and the desktop project. Produce a .NET 8 web app that preserves file-to-database behavior. Do not keep the desktop client.
+Read this file and the desktop project. Produce a .NET web app that preserves file-to-database behavior. Target .NET 10 before .NET 8 LTS EOL (2026-11-10). Do not keep the desktop client.
+
+## Runtime Upgrade Policy (.NET 10)
+
+This project must move from `net8.0` to `net10.0` before **2026-11-10**.
+
+### Segmented upgrade tasks (handoff-ready)
+
+1. **SDK**
+   - Install .NET 10 SDK on dev + CI.
+   - Update `global.json` if present to SDK `10.0.x`.
+
+2. **Retarget both projects**
+   - `src/Postal.Api/Postal.Api.csproj` → `<TargetFramework>net10.0</TargetFramework>`
+   - `src/Postal.Function/Postal.Function.csproj` → `<TargetFramework>net10.0</TargetFramework>`
+
+3. **Postal.Function (isolated worker)**
+   - Preferred project SDK:
+
+```xml
+<Project Sdk="Azure.Functions.Sdk/1.0.0">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Azure.Functions.Worker" Version="2.52.0" />
+    <!-- other Worker.Extensions.* as needed -->
+  </ItemGroup>
+</Project>
+```
+
+   - Remove `Microsoft.Azure.Functions.Worker.Sdk` package when switching to `Azure.Functions.Sdk`.
+   - Remove `OutputType` and `AzureFunctionsVersion` if using `Azure.Functions.Sdk`.
+   - Minimum worker version for .NET 10: **2.50.0+**.
+
+4. **Package sweep**
+   - Update Storage, SqlClient, Identity, App Insights, bindings, and related packages to net10-compatible versions.
+   - Run `dotnet restore` and resolve any package/runtime breaks.
+
+5. **Hosting check**
+   - .NET 10 is **not supported** on Linux Consumption for Functions.
+   - Use **Flex Consumption** (recommended), Premium, or Dedicated/App Service plan.
+   - After deploy, set runtime stack to `DOTNET-ISOLATED|10.0` (or equivalent portal/CLI setting).
+
+6. **Validate**
+   - `dotnet build Postal.sln`
+   - Local Functions host + API tests
+   - Deploy to staging/pre-prod and confirm function discovery + runtime health.
+
+No functional parser changes are expected for isolated worker beyond TFM/packages/hosting compatibility checks.
 
 ## Goal
 
@@ -28,7 +77,7 @@ Replace the desktop app that reads a large local file and writes rows to a datab
 
 ## Azure resources
 
-- App Service: Windows or Linux, .NET 8, Basic B1 or higher. Hosts the site and the API. Enforce HTTPS; application health monitoring on.
+- App Service: Windows or Linux, .NET 10 preferred (temporary .NET 8 only during transition), Basic B1 or higher. Hosts the site and the API. Enforce HTTPS; application health monitoring on.
 - Storage account: private container `imports`. Queue `imports`. Account-level: blob public access **disabled**, HTTPS required, **key access disabled** (Entra/managed identity only — user-delegation SAS and `TokenCredential` work without keys), soft delete on blobs.
 - Azure SQL: target database. Firewall allows Azure services. Database user needs `INSERT` on `Delstat` and `ImportJob` plus `EXECUTE` on `Postalweb` and `Postalwebboth` (explicit grants required; `db_datawriter` alone does not include `EXECUTE`). No special bulk privilege needed for ADO.NET `SqlBulkCopy`.
 - Identity: App Service system-assigned managed identity, shared by the worker (hosted service or Function in the same repo).

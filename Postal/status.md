@@ -1,9 +1,9 @@
 # Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL — Implementation Status
 
-**Last Updated:** 2026-10-21T00:00:00Z (SQL user provisioning completed successfully; `postalweb` exists and least-privilege grants verified on the Postal DB.)
-**Spec Version:** 1.2  
+**Last Updated:** 2026-10-21T19:05:00Z (.NET 10 upgrade policy + segmented handoff tasks added due Azure/.NET 8 LTS EOL warning for 11/10/2026.)
+**Spec Version:** 1.3  
 **Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete, blocker resolved, deployment ready).  
-**Implementation Phase:** Implementation — API + Function + hardening complete ✅; Azure storage RBAC validated ✅; Bicep/infra templates optimized + validated ✅; managed identity infrastructure online ✅; SQL user provisioning completed ✅; **W4 BICEP OPTIMIZATION COMPLETE** ✅ — deployment unblocked, ready for P0 azd provision/deploy immediately (2026-10-20T14:30:00Z)
+**Implementation Phase:** Implementation — API + Function + hardening complete ✅; Azure storage RBAC validated ✅; Bicep/infra templates optimized + validated ✅; managed identity infrastructure online ✅; SQL user provisioning completed ✅; **W4 BICEP OPTIMIZATION COMPLETE** ✅; .NET 10 upgrade planning/segmented handoff added 🟡 (driver: .NET 8 LTS EOL 11/10/2026).
 **Agent:** Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot)
 
 > This is a living tracker. Update it as tasks complete. The design spec lives in `spec.md`.
@@ -26,6 +26,47 @@
 - ✅ API + Function core implementation (2026-10-20). Consolidated summary of three completed items: (1) API endpoints `/api/imports`, `/api/imports/{jobId}/complete`, `/api/imports/{jobId}/sas-refresh` (Commits `d09259a` + `c2cc07d`; 2026-10-17); (2) Function ImportWorker with queue claim, fixed-width/CRLF parsing, SqlBulkCopy (batch 1000), resume logic, and stored proc execution (Commits `069f354` + `9f848f4`; 2026-10-17); (3) ImportWorker hardening: queue visibility renewal, managed-identity SQL auth via `DefaultAzureCredential`, config-driven batch/retry, App Insights telemetry (2026-10-20). Build evidence: `dotnet build Postal.sln` 0 errors; `dotnet test` 7 passed. Manual E2E smoke test (7E1) verified: POST /api/imports → SAS → upload → /complete → Function → parse → bulk insert → stored procs → success (2026-10-17). Files: src/Postal.Api/*; src/Postal.Function/ImportWorker.cs, Program.cs, host.json; tests/Postal.Api.Tests/*. Branch: postal-azure-function-worker. Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot).
 - ✅ Infrastructure validation smoke test (2026-10-20T11:20:00Z). Managed identity smoke test (8E1): validated existing Azure infrastructure without app deployment. Evidence: `syntax-main-id` (User-Assigned MI, Principal a9c0e286-ecd6-4c1b-beb4-ead5fdb75481) active with Storage Blob Data Contributor + Storage Blob Delegator roles on `syntaxstoragev2` ✅; Azure SQL `Postal` database online with AllowAllAzureIps ✅; App Service Plan B1 provisioned ✅; Bicep template locally valid (`az bicep build` exit 0, no errors) ✅. Validation commands: `az identity show`, `az role assignment list`, `az sql db list`. Status: MI infrastructure ready for Function/Web App deployment. Agent: Postal Migrator - GitHub Copilot (cfettinger). Branch: postal-azure-function-worker.
 
+## .NET 10 Upgrade Track (Handoff)
+
+- Title: Upgrade `Postal.Api` + `Postal.Function` from `net8.0` to `net10.0`
+- Owner: unassigned
+- Branch: `postal/net10-upgrade`
+- Files to change:
+  - `src/Postal.Api/Postal.Api.csproj`
+  - `src/Postal.Function/Postal.Function.csproj`
+  - `global.json` (if present)
+  - `.github/workflows/deploy-api-function.yml`
+  - `infra/bicep/main.bicep` (if runtime stack is pinned)
+- Infra changes:
+  - Validate Function hosting is not Linux Consumption for .NET 10.
+  - Set/verify runtime stack: `DOTNET-ISOLATED|10.0`.
+- Steps:
+  1. Install .NET 10 SDK; update `global.json` to `10.0.x` if present.
+  2. Retarget `Postal.Api.csproj` and `Postal.Function.csproj` to `net10.0`.
+  3. For Function isolated worker, prefer `Azure.Functions.Sdk/1.0.0` and `Microsoft.Azure.Functions.Worker` `2.52.0` (minimum `2.50.0`).
+  4. Remove `Microsoft.Azure.Functions.Worker.Sdk`; remove `OutputType`/`AzureFunctionsVersion` when switching SDK.
+  5. Upgrade packages (Storage, Identity, SqlClient, App Insights, Worker extensions), then run restore/build.
+  6. Validate locally, then deploy to staging/pre-prod and verify import E2E.
+- Environment:
+  - .NET 10 SDK on local + CI
+  - Existing app settings unchanged (`AzureStorage:*`, `ConnectionStrings:Sql`, `Queue:Name`)
+  - `az login` for deployment validation
+- RBAC / Permissions:
+  - Storage: `Storage Blob Data Contributor`, `Storage Blob Delegator`
+  - SQL: INSERT (`Delstat`, `ImportJob`) + EXECUTE (`Postalweb`, `Postalwebboth`)
+- Acceptance criteria:
+  - `dotnet build Postal.sln` succeeds with both projects on `net10.0`.
+  - API create/complete/sas-refresh paths function correctly.
+  - Function queue worker completes import with `ImportJob.Status = Succeeded` and `RowsWritten > 0`.
+- Tests:
+  - `dotnet test .\tests\Postal.Api.Tests\Postal.Api.Tests.csproj -c Debug`
+  - Manual E2E smoke test using `testdata/generate_sample.ps1`.
+- Test data:
+  - `sample.wrk` generated from `testdata/generate_sample.ps1`.
+- Estimated effort: 3–5 hours
+- Commit message template: `chore(runtime): upgrade Postal.Api + Postal.Function to net10.0`
+- Status.md update: `✅ .NET 10 upgrade complete; both projects target net10.0; build/tests/smoke passed; branch postal/net10-upgrade`
+
 ## In Progress / Pending (🟡)
 
 - 🟡 **Azure deployment & ops validation** (resource group `Syntax`, managed identity + Function/App Service + SQL permissions). Status: RBAC storage roles assigned ✅ (2026-10-20T10:45:00Z); managed identity infrastructure validated ✅; Bicep template locally validated ✅; **W4 BICEP OPTIMIZATION COMPLETE** ✅ (2026-10-20T14:30:00Z). Progress:
@@ -34,7 +75,7 @@
 ## Open Design Decisions (from §12)
 
 ## Architecture Notes
-.NET 8.0 and .NET 9.0 will be depreciated by Azure on 11/10/2026. The current implementation uses .NET 8 isolated worker for the Function App. The team must migrate to .NET 10 isolated worker before the deprecation date to ensure continued support and security updates.
+.NET 8 LTS reaches end of support on 11/10/2026. The current implementation uses .NET 8 isolated worker for the Function App. The team must migrate to .NET 10 isolated worker before that date to keep supported runtime/security updates.
 
 ## Databases (inventory & auth)
 
