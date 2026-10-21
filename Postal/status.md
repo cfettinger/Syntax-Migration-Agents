@@ -110,9 +110,11 @@ Notes:
 - For local dev, use AAD interactive sign-in (az login or Visual Studio) so DefaultAzureCredential/Interactive auth works.
 
 
-## Next Immediate Steps (Priority Order)
+## Next Actionable Steps (Priority Order) — Canonical Tracker
 
-**Status as of 2026-10-20T12:00:00Z**: Core importer API + Function implementation ✅ complete and locally smoke-tested; Bicep/azd infra templates ✅ optimized and validated (az bicep build exit 0, 1 serverfarms resource, 2 sites); managed identity RBAC ✅ verified on storage account; Azure infrastructure (SQL, Storage, Plan, Identity) ✅ exists and verified online; **W4 BICEP OPTIMIZATION ✅ COMPLETE** — B1 quota blocker RESOLVED.
+> **Single source of truth.** This section reflects the current state and priority for all remaining work items. The "Current In-Progress Work" section below provides detailed context but does not override this ordering.
+
+**Status as of 2026-10-20T14:30:00Z**: Core importer API + Function implementation ✅ complete and locally smoke-tested; Bicep/azd infra templates ✅ optimized and validated (az bicep build exit 0, 1 serverfarms resource, 2 sites); managed identity RBAC ✅ verified on storage account; Azure infrastructure (SQL, Storage, Plan, Identity) ✅ exists and verified online; **W4 BICEP OPTIMIZATION ✅ COMPLETE** — B1 quota blocker RESOLVED.
 
 **QUOTA BLOCKER: RESOLVED** via W4 Bicep consolidation (single App Service Plan for both Web App + Function App). Quota requirement: 2→1. Cost reduction: 50%.
 
@@ -413,7 +415,9 @@ Postal Migrator agent responsibilities
  - When creating SQL or infra changes, include an SQL script or Bicep file under infra/ and list required RBAC/role assignments in status.md.
  - For each API or function change, include acceptance criteria and at least one integration test to demonstrate success.
 
-## Current In-Progress Work
+## Current In-Progress Work (detailed context; see `Next Actionable Steps` above for canonical priority ordering)
+
+> This section supplements the canonical priority list above with detailed task information. Refer to the `Next Actionable Steps (Priority Order)` section as the single source of truth for remaining work ordering and task ownership.
 
 - ✅ API: POST /api/imports (create ImportJob + mint SAS)
   - Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot)
