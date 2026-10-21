@@ -168,11 +168,12 @@ Deploy with azd/Bicep: validate with `azd provision --preview` (or `az deploymen
 
 ## Deployment slots
 
-**Azure subscription tier B1 does not support deployment slots.** Deploy directly to the production app.
+**The B1 (Basic) tier itself supports deployment slots, but this subscription is a Free Credits–based account, which does not grant deployment slots on B1.** Deploy directly to the production app.
 
 - No staging slot available for swap testing or zero-downtime blue-green.
 - Every `azd deploy` or `az webapp deploy` updates the live app immediately.
 - Blue-green deployments (zero-downtime swaps) require a second App Service plan + app; use only if downtime risk is unacceptable.
+- If the account is later upgraded to a paid (non-Free-Credits) subscription, B1 slots become available and a staging slot can be added for swap-based deploys.
 
 **Common deployment methods:**
 

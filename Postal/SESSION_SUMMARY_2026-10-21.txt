@@ -45,9 +45,10 @@ CODE READINESS:
      - azure.yaml (azd project config)
      - .github/workflows/deploy-api-function.yml (OIDC federated auth, no long-lived tokens)
 
-  ✅ SQL Scripts (Ready, Pending Ops Execution)
-     - infra/sql/003-create-postalweb-login.sql (managed identity login)
-     - infra/sql/004-grant-postalweb-permissions.sql (INSERT/EXECUTE grants)
+  ✅ SQL Scripts (EXECUTED on Postal DB 2026-10-21)
+     - infra/sql/003-create-postalweb-login.sql (managed identity login) — RUN ✅
+     - infra/sql/004-verify-postalweb-grants.sql (INSERT/EXECUTE grants) — RUN ✅
+     - All verification tests passed; postalweb principal + grants confirmed
 
   ✅ Local Smoke Test
      - sample.wrk (309 B) generated via testdata/generate_sample.ps1
