@@ -2,6 +2,7 @@
 
 **Last Updated:** 2026-10-20T14:30:00Z  
 **Spec Version:** 1.2  
+**Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete, blocker resolved, deployment ready).  
 **Implementation Phase:** Implementation — API + Function + hardening complete ✅; Azure storage RBAC validated ✅; Bicep/infra templates optimized + validated ✅; managed identity infrastructure online ✅; **W4 BICEP OPTIMIZATION COMPLETE** ✅ — deployment unblocked, ready for P0 azd provision/deploy immediately (2026-10-20T14:30:00Z)
 
 > This is a living tracker. Update it as tasks complete. The design spec lives in `spec.md`.
