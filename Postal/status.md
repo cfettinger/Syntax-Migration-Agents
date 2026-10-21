@@ -57,14 +57,17 @@ Notes:
 ### **CRITICAL (Ready to execute)**
 
 **P0: Deploy Function App + Web App (Owner: DevOps/Platform)**  
-   - Pre-requisite: ✅ COMPLETE (W4 Bicep optimization committed, infra/bicep/main.bicep updated)
-   - Quota blocker eliminated: Single App Service Plan (B1, shared) for both apps
-   - Execute deployment:
-     ```bash
-     cd D:\Webs\Syntax\PostalExe\migration
-     azd provision
-     azd deploy
-     ```
+    - Pre-requisite: ✅ COMPLETE (W4 Bicep optimization committed, infra/bicep/main.bicep updated)
+    - Quota blocker eliminated: Single App Service Plan (B1, shared) for both apps
+    - Tooling note: `azd` was installed for deployment via `winget install microsoft.azd`.
+    - Quota note: A B1 quota increase was needed via `az quota update --resource-name B1 --scope "/subscriptions/<SUBSCRIPTION-ID>/providers/Microsoft.Web/locations/<REGION>" --limit-object value=1` — the attempt FAILED because the subscription needs to be upgraded.
+    - Execute deployment:
+      ```bash
+      winget install microsoft.azd   # one-time azd install (already done 2026-10-21)
+      cd D:\Webs\Syntax\PostalExe\migration
+      azd provision
+      azd deploy
+      ```
      OR manual:
      ```bash
      az deployment group create \
