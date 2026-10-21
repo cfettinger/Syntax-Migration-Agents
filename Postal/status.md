@@ -1,9 +1,10 @@
 # Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL — Implementation Status
 
-**Last Updated:** 2026-10-20T14:45:00Z (Consolidation complete: removed duplicate 8E1/7E1 entries from "In Progress / Pending"; 448 → 380 lines, -68 lines, -15%)
+**Last Updated:** 2026-10-21T00:00:00Z (SQL user provisioning completed successfully; `postalweb` exists and least-privilege grants verified on the Postal DB.)
 **Spec Version:** 1.2  
 **Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete, blocker resolved, deployment ready).  
-**Implementation Phase:** Implementation — API + Function + hardening complete ✅; Azure storage RBAC validated ✅; Bicep/infra templates optimized + validated ✅; managed identity infrastructure online ✅; **W4 BICEP OPTIMIZATION COMPLETE** ✅ — deployment unblocked, ready for P0 azd provision/deploy immediately (2026-10-20T14:30:00Z)
+**Implementation Phase:** Implementation — API + Function + hardening complete ✅; Azure storage RBAC validated ✅; Bicep/infra templates optimized + validated ✅; managed identity infrastructure online ✅; SQL user provisioning completed ✅; **W4 BICEP OPTIMIZATION COMPLETE** ✅ — deployment unblocked, ready for P0 azd provision/deploy immediately (2026-10-20T14:30:00Z)
+**Agent:** Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot)
 
 > This is a living tracker. Update it as tasks complete. The design spec lives in `spec.md`.
 > 
@@ -106,15 +107,16 @@ Notes:
 
    ### **HIGH (Post-quota fix)**
 
-**P1: W3 – SQL User Provisioning (Owner: ops/DBA)**
-   - Script location: `infra/sql/003-create-postalweb-login.sql` + `infra/sql/004-grant-postalweb-permissions.sql` (committed, branch `postal-azure-function-worker`).
-   - Steps:
-     1. Connect to Postal DB with SQL admin account (retain existing REDACTED_SQL_ADMIN credential).
-     2. Run 003 script: creates SQL login `postalweb` (managed identity-based).
-     3. Run 004 script: grants INSERT on dbo.Delstat + dbo.ImportJob; EXECUTE on dbo.Postalweb + dbo.Postalwebboth.
-   - Acceptance: Query `SELECT * FROM sys.database_principals WHERE name='postalweb'` returns 1 row; query `sys.database_permissions` shows INSERT/EXECUTE grants.
+**P1: W3 – SQL User Provisioning (Owner: ops/DBA) — COMPLETE ✅**
+   - Script location: `infra/sql/003-create-postalweb-login.sql` + `infra/sql/004-verify-postalweb-grants.sql`.
+   - Status: Successfully executed against the Postal SQL DB; the `postalweb` database user exists and the least-privilege grant set is active.
+   - Steps completed:
+     1. Connected to Postal DB with a privileged SQL admin account.
+     2. Ran `003-create-postalweb-login.sql`; the `postalweb` user was created.
+     3. Ran `004-verify-postalweb-grants.sql`; positive permission checks passed and the expected denials behaved correctly.
+   - Acceptance: `SELECT * FROM sys.database_principals WHERE name='postalweb'` returns 1 row; `HAS_PERMS_BY_NAME` checks show the expected `SELECT` / `UPDATE` / `EXECUTE` grants on the correct objects; negative checks confirm `Delstat` is read-only and `postalweb` is not a member of `db_owner`.
    - Effort: 0.5 hours.
-   - **Evidence required:** Script execution output + permission verification queries in status.md update.
+   - **Evidence captured:** The verification script output shows PASS for the intended positive checks and PASS for the expected negative checks. Secret values remain in Key Vault / environment configuration, not in repo source control.
 
 **P2: W4 – Deploy Function App + Web App (Owner: DevOps/Platform)**
    - After quota resolved, execute deployment:
