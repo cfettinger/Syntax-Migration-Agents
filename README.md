@@ -12,7 +12,7 @@ A collection of agent specs and specifications for migrating legacy postal-deliv
 ## Postal migration — summary
 
 - **Today:** a VB.NET WinForms app reads a ~209 MB (national) fixed-width file and inserts rows into `Delstat` via `System.Data.SqlClient`.
-- **Target:** a .NET 8 web app on Azure App Service:
+- **Target:** a .NET 10 web app on Azure App Service:
   - The browser uploads the file **directly** to Azure Blob Storage using a user-delegation SAS (block upload, no file body through App Service).
   - A queue-based worker streams the blob, parses the 309-byte records with the legacy field rules, and bulk-inserts into Azure SQL with checkpointed resume.
   - Job status (`Queued` / `Running` / `Succeeded` / `Failed`) and `RowsWritten` are surfaced via a small REST API.
@@ -29,7 +29,7 @@ separate working repo (`D:\Webs\Syntax\PostalExe\migration`, branch
 |---|---------|-----------|--------|
 | 1 | **Legacy PostalExe** (desktop importer) | VB.NET 2008 WinForms app (`Form1.vb`) that reads fixed-width Delstat `.wrk` files and loads `Delstat` via `System.Data.SqlClient`, then runs `Postalweb`/`Postalwebboth`. | Being replaced — behavior fully reproduced in the Function worker. |
 | 2 | **Legacy Postal Website** (ASP classic) | IIS-hosted `.asp` site that displays/edits postal data. Lift & shift to Azure App Service (`postal-web`) with minimal code changes (deploy-time `connvars.asp`, `machineKey` removal, one nav fix). | W1 (page edits) + W2 (deploy-time connvars generator) done; W3 (SQL login `postalweb`) scripts authored. |
-| 3 | **Postal.Api + Postal.Function** (.NET 8) | The new import pipeline: minimal API (import jobs + user-delegation SAS minting) + isolated queue-trigger worker (fixed-width/CRLF parse, chunked `SqlBulkCopy`, `RowsWritten` resume, SP calls). | API + Function complete and smoke-tested end-to-end (7E1). |
+| 3 | **Postal.Api + Postal.Function** (.NET 10) | The new import pipeline: minimal API (import jobs + user-delegation SAS minting) + isolated queue-trigger worker (fixed-width/CRLF parse, chunked `SqlBulkCopy`, `RowsWritten` resume, SP calls). | API + Function complete and smoke-tested end-to-end (7E1). |
 | 4 | **Tracking workspace** (this repo) | Multi-agent coordination: `Postal/spec.md` (importer design), `Postal/websitespec.md` (website lift & shift), `Postal/status.md` (live tracker). | Active — updated as tasks complete. |
 
 ### Running the new pipeline locally
@@ -48,10 +48,13 @@ separate working repo (`D:\Webs\Syntax\PostalExe\migration`, branch
 `infra/bicep/main.bicep` (+ `azure.yaml`) deploys the importer stack — Storage
 (`imports` container + queue), App Service (API), Function App (worker), Azure
 SQL, App Insights, and the system-assigned managed identity with **Storage Blob
-Data Contributor + Storage Blob Delegator**. Deploy with `azd up`. CI
-(`.github/workflows/deploy-api-function.yml`) uses OIDC (`azure/login@v2`) — no
-long-lived credentials in the repo; the SQL admin password is fetched from Key
-Vault at deploy time. See `infra/README.md` in the migration repo.
+Data Contributor + Storage Blob Delegator**. The stack is pinned to .NET 10 runtime
+settings (`DOTNET|10.0` for the Web App, `DOTNET-ISOLATED|10.0` for the Function
+App). Deploy with `azd up`. CI (`.github/workflows/deploy-api-function.yml`)
+uses OIDC (`azure/login@v2`) and .NET 10 setup (`dotnet/setup-dotnet@v4` with
+`10.0.x`) — no long-lived credentials in the repo; the SQL admin password is
+fetched from Key Vault at deploy time. See `infra/README.md` in the migration
+repo.
 
 ## Beanstalk → GitHub migration — summary
 
