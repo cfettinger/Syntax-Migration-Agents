@@ -80,6 +80,42 @@ Execute segments **in order**. Each segment is independently committable and has
 5. E2E import smoke: generate `sample.wrk` via `testdata/generate_sample.ps1`, run the full import, confirm `ImportJob.Status = Succeeded` and `RowsWritten > 0`.
 - **Done when:** all five checks pass against the deployed apps.
 
+### Detailed command checklist (safe placeholders only)
+
+```powershell
+# 1) Validate local prerequisites
+ dotnet --list-sdks
+ dotnet --version
+ dotnet build Postal.sln -c Debug
+ dotnet test .\tests\Postal.Api.Tests\Postal.Api.Tests.csproj -c Debug --logger "console;verbosity=minimal"
+
+# 2) Validate Azure subscription context (no secrets in output)
+az account show --query "{subscription:id, name:name, tenantId:tenantId}" -o table
+az account set --subscription "<subscription-name-or-id>"
+
+# 3) Check the existing App Service plan and runtime stack
+az appservice plan show --name "<app-service-plan-name>" --resource-group "<resource-group>" --query "{name:name, sku:sku.name, kind:kind, numberOfSites:numberOfSites}" -o json
+az webapp show --resource-group "<resource-group>" --name "<api-app-name>" --query "{name:name, defaultHostName:defaultHostName, linuxFxVersion:config.linuxFxVersion}" -o json
+az functionapp show --resource-group "<resource-group>" --name "<function-app-name>" --query "{name:name, defaultHostName:defaultHostName, linuxFxVersion:config.linuxFxVersion}" -o json
+
+# 4) Deploy the API and verify the health endpoint
+az webapp deploy --resource-group "<resource-group>" --name "<api-app-name>" --src-path "<zip-or-folder>" --type zip
+Invoke-WebRequest -Uri "https://<api-hostname>/" -Method Get -UseBasicParsing
+
+# 5) Deploy the Function app (zip deploy is the documented fallback for the .NET 10 worker issue)
+az functionapp deployment source config-zip --resource-group "<resource-group>" --name "<function-app-name>" --src "<deploy-zip-path>"
+Invoke-WebRequest -Uri "https://<function-hostname>/" -Method Get -UseBasicParsing
+
+# 6) Smoke-test the import path without exposing secrets
+$apiBaseUrl = "https://<api-hostname>"
+$job = Invoke-RestMethod -Uri "$apiBaseUrl/api/imports" -Method Post -ContentType "application/json" -Body (@{ originalFileName = "sample.wrk"; sizeBytes = 309 } | ConvertTo-Json)
+$uploadUrl = $job.sasUri
+Invoke-WebRequest -Uri $uploadUrl -Method Put -InFile ".\testdata\sample.wrk" -ContentType "application/octet-stream" | Out-Null
+Invoke-RestMethod -Uri "$apiBaseUrl/api/imports/$($job.jobId)/complete" -Method Post -ContentType "application/json"
+```
+
+Use placeholders such as `<resource-group>`, `<api-app-name>`, and `<function-app-name>` in shared runbooks. Do not paste connection strings, SAS tokens, or passwords into files or issue comments.
+
 ### Rollback
 
 Revert the upgrade commit(s) (TFM + packages + CI/IaC pins) and redeploy with the .NET 8 SDK. All Azure resources (B1 plan, storage, SQL, identity) are runtime-agnostic — no infrastructure rollback is required.

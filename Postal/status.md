@@ -10,6 +10,32 @@
 >
 > **Architecture Reference:** See [infra/README.md](../../PostalExe/migration/infra/README.md) in the migration repo for detailed topology, data flow diagrams, security posture, queue/visibility renewal logic, and ImportJob lifecycle.
 
+## Detailed validation commands (safe placeholders only)
+
+```powershell
+# Verify the active Azure context and subscription
+az account show --query "{subscription:id, name:name, tenantId:tenantId}" -o table
+az account set --subscription "<subscription-name-or-id>"
+
+# Validate the resource group, app names, and runtime stacks
+az group show --name "<resource-group>" --query "{name:name, location:location}" -o table
+az webapp show --resource-group "<resource-group>" --name "<api-app-name>" --query "{name:name, defaultHostName:defaultHostName, runtime:config.linuxFxVersion}" -o json
+az functionapp show --resource-group "<resource-group>" --name "<function-app-name>" --query "{name:name, defaultHostName:defaultHostName, runtime:config.linuxFxVersion}" -o json
+
+# Check required app settings without printing secret values
+az webapp config appsettings list --resource-group "<resource-group>" --name "<api-app-name>" --query "[?starts_with(name, 'POSTAL_') || starts_with(name, 'AzureStorage') || starts_with(name, 'ConnectionStrings') || starts_with(name, 'Queue')].{name:name}" -o table
+az functionapp config appsettings list --resource-group "<resource-group>" --name "<function-app-name>" --query "[?starts_with(name, 'POSTAL_') || starts_with(name, 'AzureWebJobs') || starts_with(name, 'Queue')].{name:name}" -o table
+
+# Smoke-test the import flow with placeholder hostnames
+$apiBaseUrl = "https://<api-hostname>"
+$job = Invoke-RestMethod -Uri "$apiBaseUrl/api/imports" -Method Post -ContentType "application/json" -Body (@{ originalFileName = "sample.wrk"; sizeBytes = 309 } | ConvertTo-Json)
+Write-Host "JobId=$($job.jobId)"
+Invoke-WebRequest -Uri $job.sasUri -Method Put -InFile ".\testdata\sample.wrk" -ContentType "application/octet-stream" | Out-Null
+Invoke-RestMethod -Uri "$apiBaseUrl/api/imports/$($job.jobId)/complete" -Method Post -ContentType "application/json"
+```
+
+Use placeholder names and hostnames in status notes; do not store raw connection strings, SAS URIs, secret values, or passwords in the repo. Secret locations should be recorded as Key Vault references or environment variable names only.
+
 ---
 
 ## Live deployment (✅)
