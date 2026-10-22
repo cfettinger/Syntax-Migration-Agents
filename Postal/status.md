@@ -1,9 +1,9 @@
 # Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL — Implementation Status
 
-**Last Updated:** 2026-10-22T17:20:00Z (spec v1.4, live API deployment verified via Visual Studio Publish; worker validation remains pending)
+**Last Updated:** 2026-10-22T17:55:00Z (spec v1.4; API + Function both live in Azure; worker deployed with zip workaround due to .NET 10 UseBlobContainerDeploy bug; end-to-end validation in progress)
 **Spec Version:** 1.4  
-**Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete, Azure API live, worker validation pending).  
-**Implementation Phase:** Azure App Service live; worker validation in progress** ✅.
+**Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete, API + Function live, worker validation in progress).  
+**Implementation Phase:** Azure API + Function live; end-to-end validation in progress** ✅.
 **Agent:** Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot)
 
 > This is a living tracker. Update it as tasks complete. The design spec lives in `spec.md`.
@@ -14,8 +14,10 @@
 
 ## Live deployment (✅)
 
-- ✅ `Postal.Api` published successfully via Visual Studio and verified live at http://postal-api.azurewebsites.net/ (2026-10-22T17:20:00Z). Browser access to the root URL succeeded. Branch: `postal-azure-function-worker`.
-- ⏳ `Postal.Function` publish and end-to-end import validation are pending.
+- ✅ `Postal.Api` is live in Azure App Service at http://postal-api.azurewebsites.net/ (verified 2026-10-22T17:20:00Z via Visual Studio publish). Branch: `postal-azure-function-worker`.
+- ✅ `Postal.Function` is live in Azure Functions at https://syntaxpostalfunctionv1-bubfbtc3adcqc2fn.westus3-01.azurewebsites.net (verified 2026-10-22T07:48:59Z). This was deployed using the zip fallback due to the .NET 10 `UseBlobContainerDeploy` bug.
+- ✅ Deployment workaround used for the worker: `dotnet publish -c Release -r linux-x64 -o ./publish`, zip the output, then `az functionapp deployment source config-zip -g Syntax -n SyntaxPostalFunctionV1 --src deploy.zip` (or `func azure functionapp publish SyntaxPostalFunctionV1`). Deployment response confirmed: `status: 4`, `complete: true`, `deployer: az_cli_functions`, `message: "Created via a push deployment"`.
+- ⏳ End-to-end import validation against the live worker remains pending.
 
 ## Completed (✅)
 
