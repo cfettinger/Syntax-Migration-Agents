@@ -93,17 +93,38 @@ Execute segments **in order**. Each segment is independently committable and has
 az account show --query "{subscription:id, name:name, tenantId:tenantId}" -o table
 az account set --subscription "<subscription-name-or-id>"
 
-# 3) Check the existing App Service plan and runtime stack
+# 3) Enable managed identity on the API app and grant storage roles
+az webapp identity assign -g Syntax -n postal-api
+$prid = az webapp identity show -g Syntax -n postal-api --query principalId -o tsv
+$scope = az storage account show -g Syntax -n syntaxstoragev2 --query id -o tsv
+
+az role assignment create --assignee-object-id $prid --assignee-principal-type ServicePrincipal --role "Storage Queue Data Contributor" --scope $scope
+az role assignment create --assignee-object-id $prid --assignee-principal-type ServicePrincipal --role "Storage Blob Data Contributor" --scope $scope
+az role assignment create --assignee-object-id $prid --assignee-principal-type ServicePrincipal --role "Storage Blob Delegator" --scope $scope
+
+# 4) Check the existing App Service plan and runtime stack
 az appservice plan show --name "<app-service-plan-name>" --resource-group "<resource-group>" --query "{name:name, sku:sku.name, kind:kind, numberOfSites:numberOfSites}" -o json
 az webapp show --resource-group "<resource-group>" --name "<api-app-name>" --query "{name:name, defaultHostName:defaultHostName, linuxFxVersion:config.linuxFxVersion}" -o json
 az functionapp show --resource-group "<resource-group>" --name "<function-app-name>" --query "{name:name, defaultHostName:defaultHostName, linuxFxVersion:config.linuxFxVersion}" -o json
 
-# 4) Deploy the API and verify the health endpoint
+# 5) Deploy the API and verify the health endpoint
 az webapp deploy --resource-group "<resource-group>" --name "<api-app-name>" --src-path "<zip-or-folder>" --type zip
 Invoke-WebRequest -Uri "https://<api-hostname>/" -Method Get -UseBasicParsing
 
-# 5) Deploy the Function app (zip deploy is the documented fallback for the .NET 10 worker issue)
-az functionapp deployment source config-zip --resource-group "<resource-group>" --name "<function-app-name>" --src "<deploy-zip-path>"
+# 6) Deploy the Function app (zip deploy is the documented fallback for the .NET 10 worker issue)
+
+# 7) Verify the app identity and RBAC assignment
+az webapp identity show -g Syntax -n postal-api --query "{principalId:principalId, tenantId:tenantId}" -o json
+az role assignment list --assignee $prid --scope $scope -o table
+
+# 8) Smoke-test the import flow with placeholder hostnames
+$apiBaseUrl = "https://<api-hostname>"
+$job = Invoke-RestMethod -Uri "$apiBaseUrl/api/imports" -Method Post -ContentType "application/json" -Body (@{ originalFileName = "sample.wrk"; sizeBytes = 309 } | ConvertTo-Json)
+Write-Host "JobId=$($job.jobId)"
+Write-Host "SAS container: $(([System.Uri]$job.sasUrl).AbsolutePath.Trim('/').Split('/')[0])"
+Invoke-WebRequest -Uri $job.sasUrl -Method Put -InFile ".\testdata\sample.wrk" -Headers @{"x-ms-blob-type"="BlockBlob"} -ContentType "application/octet-stream" | Out-Null
+Invoke-RestMethod -Uri "$apiBaseUrl/api/imports/$($job.jobId)/complete" -Method Post -ContentType "application/json"
+"},{az functionapp deployment source config-zip --resource-group "<resource-group>" --name "<function-app-name>" --src "<deploy-zip-path>"
 Invoke-WebRequest -Uri "https://<function-hostname>/" -Method Get -UseBasicParsing
 
 # 6) Smoke-test the import path without exposing secrets

@@ -1,10 +1,45 @@
 # Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL — Implementation Status
 
-**Last Updated:** 2026-10-22T20:50:00Z (spec v1.4; `POSTAL_IMPORTS_CONTAINER` remains the canonical Azure env var, SAS uploads require `x-ms-blob-type: BlockBlob`, and API responses include `uploadNote`; container-targeting + validation script diagnostics were hardened; API + Function both live in Azure; end-to-end validation remains pending)
+**Last Updated:** 2026-10-22T21:40:00Z (spec v1.4; managed identity is now documented and required for the `postal-api` App Service, `POSTAL_IMPORTS_CONTAINER` remains canonical, SAS uploads require `x-ms-blob-type: BlockBlob`, and API responses include `uploadNote`; API + Function both live in Azure; end-to-end validation remains pending)
 **Spec Version:** 1.4  
 **Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete, Azure API + Function live, worker validation pending).  
 **Implementation Phase:** Azure API + Function live; end-to-end validation in progress** ✅.
 **Agent:** Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot)
+
+## Azure managed identity setup for `postal-api`
+
+```powershell
+# Enable system-assigned managed identity on the API app
+az webapp identity assign -g Syntax -n postal-api
+
+# Get the principal id for the app's managed identity
+$prid = az webapp identity show -g Syntax -n postal-api --query principalId -o tsv
+
+# Scope the role assignments to the storage account used by the import pipeline
+$scope = az storage account show -g Syntax -n syntaxstoragev2 --query id -o tsv
+
+az role assignment create --assignee-object-id $prid --assignee-principal-type ServicePrincipal --role "Storage Queue Data Contributor" --scope $scope
+az role assignment create --assignee-object-id $prid --assignee-principal-type ServicePrincipal --role "Storage Blob Data Contributor" --scope $scope
+az role assignment create --assignee-object-id $prid --assignee-principal-type ServicePrincipal --role "Storage Blob Delegator" --scope $scope
+```
+
+This identity is required for the API to mint SAS URLs, upload completion checks, and queue enqueue operations. Ensure the app is republished after the identity is created so the live app picks up the new permissions and code path.
+
+> Note: the same role set is required on the storage account used by the `POSTAL_IMPORTS_CONTAINER` import pipeline; role assignment propagation can take a few minutes.
+
+### Required Azure roles
+- `Storage Queue Data Contributor`
+- `Storage Blob Data Contributor`
+- `Storage Blob Delegator`
+
+### Validation
+- `az webapp identity show -g Syntax -n postal-api --query "{principalId:principalId, tenantId:tenantId}" -o json`
+- `az role assignment list --assignee $prid --scope $scope -o table`
+
+This should be completed before re-running the live import validation script.
+
+**Branch:** `postal-azure-function-worker`  
+**Owner:** `cfettinger` / GitHub Copilot
 
 > This is a living tracker. Update it as tasks complete. The design spec lives in `spec.md`.
 >
