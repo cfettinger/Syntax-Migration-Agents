@@ -36,6 +36,7 @@
 
 ## Architecture Notes
 .NET 8 LTS reaches end of support on 11/10/2026. The implementation has been retargeted to .NET 10 (API, Function isolated worker, and tests) to maintain supported runtime/security updates; deploy/runtime verification remains in the deployment validation track.
+**Update is completed**
 
 ## Databases (inventory & auth)
 
@@ -407,6 +408,7 @@ Postal Migrator agent responsibilities
 
 - 2026-10-20T10:45:00Z — RBAC role assignments verified ✅. Assigned **Storage Blob Data Contributor** and **Storage Blob Delegator** to the managed identity `syntax-main-id` (principal ID: `a9c0e286-ecd6-4c1b-beb4-ead5fdb75481`) on the storage account `/subscriptions/5a5056f9-2199-4063-9133-0d9a32714a8a/resourceGroups/Syntax/providers/Microsoft.Storage/storageAccounts/syntaxstoragev2`. Verification command: `az role assignment list --assignee-object-id a9c0e286-ecd6-4c1b-beb4-ead5fdb75481 --scope /subscriptions/5a5056f9-2199-4063-9133-0d9a32714a8a/resourceGroups/Syntax/providers/Microsoft.Storage/storageAccounts/syntaxstoragev2 --query "[].roleDefinitionName" -o table` returned `Storage Blob Data Contributor` and `Storage Blob Delegator`. **Next: Confirm Function App and Web App identity assignment to the managed identity and deploy in Azure.** Agent: Postal Migrator - GitHub Copilot (cfettinger / GPT-5 Mini).
 - 2026-10-21T19:30:00Z — Spec v1.4 review: optimized the .NET 10 upgrade instructions in spec.md ("Runtime Upgrade Policy" section). Changes: added `tests/Postal.Api.Tests` to upgrade scope; per-segment "Done when" verification criteria; new Segment 5 covering CI workflow `dotnet-version` + Bicep `linuxFxVersion` pins (`DOTNET-ISOLATED|10.0` / `DOTNET|10.0`); clarified the existing B1 dedicated plan satisfies the .NET 10 hosting requirement (no plan change); replaced "deploy to staging/pre-prod" with the actual P0 production deploy + runtime-stack verification; added rollback plan and consolidated acceptance criteria. No code changes. Agent: Postal Migrator - GitHub Copilot (cfettinger).
+- 2026-10-22T00:00:00Z — .NET 10 validation run in this chat: `dotnet build Postal.sln -c Debug` succeeded with 0 errors; `dotnet test .\tests\Postal.Api.Tests\Postal.Api.Tests.csproj -c Debug` passed with 7 passed, 0 failed; `az bicep build --file infra/bicep/main.bicep` succeeded. Runtime pins confirmed: `global.json` SDK `10.0.402`, projects target `net10.0`, workflow uses `10.0.x`, App Service runs `DOTNET|10.0`, and Function App runs `DOTNET-ISOLATED|10.0`. Agent: Postal Migrator - GitHub Copilot (cfettinger).
 - 2026-10-22T00:00:00Z — .NET 10 validation run in this chat: `dotnet build Postal.sln -c Debug` succeeded with 0 errors; `dotnet test .\tests\Postal.Api.Tests\Postal.Api.Tests.csproj -c Debug` passed with 7 passed, 0 failed; `az bicep build --file infra/bicep/main.bicep` succeeded. Runtime pins confirmed: `global.json` SDK `10.0.402`, projects target `net10.0`, workflow uses `10.0.x`, App Service runs `DOTNET|10.0`, and Function App runs `DOTNET-ISOLATED|10.0`. Agent: Postal Migrator - GitHub Copilot (cfettinger).
 
 <!-- end appended -->
