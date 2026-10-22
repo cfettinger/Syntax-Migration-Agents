@@ -20,6 +20,20 @@ WORK COMPLETED TODAY:
      and EXECUTE on dbo.Postalweb + dbo.Postalwebboth
    - status.md updated and checked in to reflect P1 completion
 
+✅ 3. P2 / W4 — LIVE DEPLOYMENT COMPLETE (2026-10-22)
+   - Postal.Api published to Azure App Service via Visual Studio 2026
+     → LIVE at http://postal-api.azurewebsites.net/
+       (verified 2026-10-22T17:20:00Z; branch postal-azure-function-worker)
+   - Postal.Function published to Azure Functions as SyntaxPostalFunctionV1
+     → LIVE at https://syntaxpostalfunctionv1-bubfbtc3adcqc2fn.scm.westus3-01.azurewebsites.net
+       (app endpoint https://syntaxpostalfunctionv1-bubfbtc3adcqc2fn.westus3-01.azurewebsites.net;
+        verified deployment response 2026-10-22T07:48:59Z)
+   - Worker deployed via ZIP FALLBACK (dotnet publish -c Release -r linux-x64 -o ./publish
+     → zip → az functionapp deployment source config-zip -g Syntax -n SyntaxPostalFunctionV1
+     --src deploy.zip) due to the .NET 10 UseBlobContainerDeploy bug
+   - Application Insights instrumentation REMOVED from the deployed Postal.Function
+   - ⏳ End-to-end import validation against the live worker remains PENDING
+
 CURRENT STATE:
 ─────────────────────────────────────────────────────────────────────────────
 
@@ -73,7 +87,20 @@ AZURE INFRASTRUCTURE (Verified Online):
 
   ✅ App Service Plan (syntax-app-service)
      - B1 tier, eastus location
-     - PROVISIONED but NO APPS DEPLOYED
+     - PROVISIONED and APPS DEPLOYED (2026-10-22)
+
+  ✅ LIVE APPS (deployed 2026-10-22)
+     - Postal.Api (App Service)
+       → http://postal-api.azurewebsites.net/
+       - Published via Visual Studio 2026 (verified 2026-10-22T17:20:00Z)
+       - Branch: postal-azure-function-worker
+     - Postal.Function (Azure Functions) — app name SyntaxPostalFunctionV1
+       → https://syntaxpostalfunctionv1-bubfbtc3adcqc2fn.scm.westus3-01.azurewebsites.net
+       - App endpoint: https://syntaxpostalfunctionv1-bubfbtc3adcqc2fn.westus3-01.azurewebsites.net
+       - Deployed via zip fallback (az functionapp deployment source config-zip)
+         due to .NET 10 UseBlobContainerDeploy bug (verified 2026-10-22T07:48:59Z)
+       - Application Insights instrumentation removed from this deployment
+     - ⏳ End-to-end import validation against the live worker: PENDING
 
   ✅ QUOTA BLOCKER: RESOLVED (2026-10-20T14:30:00Z)
      - Original error: SubscriptionIsOverQuotaForSku (B1 AppServicePlan quota exhausted)
