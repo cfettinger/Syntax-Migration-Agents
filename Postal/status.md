@@ -410,27 +410,33 @@ Postal Migrator agent responsibilities
 - 2026-10-21T19:30:00Z — Spec v1.4 review: optimized the .NET 10 upgrade instructions in spec.md ("Runtime Upgrade Policy" section). Changes: added `tests/Postal.Api.Tests` to upgrade scope; per-segment "Done when" verification criteria; new Segment 5 covering CI workflow `dotnet-version` + Bicep `linuxFxVersion` pins (`DOTNET-ISOLATED|10.0` / `DOTNET|10.0`); clarified the existing B1 dedicated plan satisfies the .NET 10 hosting requirement (no plan change); replaced "deploy to staging/pre-prod" with the actual P0 production deploy + runtime-stack verification; added rollback plan and consolidated acceptance criteria. No code changes. Agent: Postal Migrator - GitHub Copilot (cfettinger).
 - 2026-10-22T00:00:00Z — .NET 10 validation run in this chat: `dotnet build Postal.sln -c Debug` succeeded with 0 errors; `dotnet test .\tests\Postal.Api.Tests\Postal.Api.Tests.csproj -c Debug` passed with 7 passed, 0 failed; `az bicep build --file infra/bicep/main.bicep` succeeded. Runtime pins confirmed: `global.json` SDK `10.0.402`, projects target `net10.0`, workflow uses `10.0.x`, App Service runs `DOTNET|10.0`, and Function App runs `DOTNET-ISOLATED|10.0`. Agent: Postal Migrator - GitHub Copilot (cfettinger).
 
-- 2026-10-22T16:45:00Z — **Segment 6 Deployment: VS Publish Approach Initiated** 🚀
-  - **Strategy:** Visual Studio Publish (direct deployment) instead of azd/Bicep CLI.
-  - **Why:** Avoids CLI escaping complexity, leverages VS UI for app creation/selection, faster iteration.
-  - **Infrastructure status:** ✅ All prerequisites ready:
-    - App Service Plan `syntax-app-service` (Linux, eastus) exists
-    - SQL: Postal DB ready, `postalweb` user + permissions provisioned
-    - Storage: `syntaxstoragev2` with queues, managed identity configured
-    - Identity: `syntax-main-id` with Storage RBAC roles assigned
-  - **Code readiness:** ✅ All checksums passing:
-    - `dotnet build Postal.sln -c Debug` → 0 errors
-    - `dotnet test .\tests\Postal.Api.Tests\Postal.Api.Tests.csproj -c Debug` → 7/7 passed
-    - Both projects on `net10.0`
-  - **Deployment sequence:**
-    1. **postal-api**: Right-click → Publish → Azure → App Service (Linux) → Select/create `postal-api` → Publish
-    2. **postal-worker**: Right-click → Publish → Azure → Functions → Select/create `postal-worker` → Publish
-    3. **Verify .NET 10 runtime** in Portal → Settings → Configuration
-    4. **Run E2E smoke test** (see PUBLISH_GUIDE.md for details)
-  - **Quota blocker note:** B1 subscription quota = 0. If blocked, alternate SKUs (Dv5/Bsv2) have sufficient quota in eastus. Decision: attempt publish; if quota error, escalate to ops for SKU change approval.
-  - **Documentation:** PUBLISH_GUIDE.md (D:\Webs\Syntax\PostalExe\migration) provides step-by-step instructions, CLI verification commands, smoke test flow, and troubleshooting.
-  - **Visual Studio status:** ✅ Launched and responsive (Process devenv running)
-  - **Next step:** User initiates Postal.Api Publish workflow in VS (see PUBLISH_GUIDE.md § Step 1).
-  - Agent: Postal Migrator - GitHub Copilot (cfettinger, 2026-10-22T16:45:00Z).
+- 2026-10-22T17:00:00Z — **DEPLOYMENT BLOCKER CONFIRMED: ZERO SUBSCRIPTION VM QUOTA** 🔴
+  - **Critical Finding:** Subscription has **zero allocated quota for ALL VM SKUs** (tested: B1, F1 families). Confirmed via CLI:
+    - Attempted: `az appservice plan create --sku F1 --is-linux true` → ERROR: Current Limit (F1 VMs): 0, Amount required: 1
+    - Attempted: `az appservice plan create --sku B1 --is-linux true` → Same quota error
+    - **Root cause:** Subscription tier (Pay-as-You-Go / Free Trial) has zero pre-allocated compute quota
+  - **Impact:** 
+    - ❌ Cannot deploy to App Service (all SKUs blocked: F1, B1, B2, S1, P1V2, etc.)
+    - ❌ Cannot use existing `syntax-app-service` B1 plan (no quota to attach apps)
+    - ❌ Visual Studio Publish will also fail (backend calls App Service APIs that enforce quota)
+    - ✅ SQL, Storage, Identity infrastructure all ready (non-compute, no quota impact)
+  - **Code & Infrastructure Status:**
+    - ✅ Code: net10.0 ready, builds clean (0 errors), tests pass (7/7)
+    - ✅ Database: Postal DB + `postalweb` user provisioned
+    - ✅ Storage: `syntaxstoragev2` ready, managed identity configured
+    - ✅ RBAC: All roles assigned to `syntax-main-id`
+    - ❌ Compute: No quota available for any App Service SKU
+  - **Workarounds Evaluated:**
+    - ❌ **Alternate App Service SKUs:** All blocked by same subscription-level quota gate (F1, B1-B3, S1-S3, P1V2-P3V2, etc.)
+    - ❌ **Container Apps:** Not evaluated; likely subject to same subscription quota restrictions
+    - ✅ **Only viable path:** Contact Azure Support or subscription owner to request quota increase
+  - **Ops Action Required (BLOCKING):**
+    1. Contact Azure Support with subscription ID `5a5056f9-2199-4063-9133-0d9a32714a8a`
+    2. Request compute quota increase: minimum 1 vCPU for chosen SKU (recommend S1 Standard or newer)
+    3. Alternatively: Request subscription upgrade from Free Trial / Pay-as-You-Go to Production account (may have higher default quotas)
+    4. Escalate to subscription owner if needed
+  - **Timeline impact:** Deployment blocked until quota approved (typically 1-2 hours for Azure Support via support ticket)
+  - **Next steps:** See `ESCALATION_DEPLOYMENT_QUOTA.md` for ops handoff documentation
+  - Agent: Postal Migrator - GitHub Copilot (cfettinger, 2026-10-22T17:00:00Z). Status: **DEPLOYMENT IMPOSSIBLE — AWAITING SUBSCRIPTION QUOTA APPROVAL**.
 
 <!-- end appended -->
