@@ -1,7 +1,7 @@
 # Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL — Implementation Status
 
-**Last Updated:** 2026-10-21T19:05:00Z (.NET 10 upgrade policy + segmented handoff tasks added due Azure/.NET 8 LTS EOL warning for 11/10/2026.)
-**Spec Version:** 1.3  
+**Last Updated:** 2026-10-21T19:30:00Z (spec v1.4: .NET 10 upgrade instructions optimized — full solution scope, per-segment done criteria, CI/IaC runtime pins, rollback plan.)
+**Spec Version:** 1.4  
 **Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete, blocker resolved, deployment ready).  
 **Implementation Phase:** Implementation — API + Function + hardening complete ✅; Azure storage RBAC validated ✅; Bicep/infra templates optimized + validated ✅; managed identity infrastructure online ✅; SQL user provisioning completed ✅; **W4 BICEP OPTIMIZATION COMPLETE** ✅; .NET 10 upgrade planning/segmented handoff added 🟡 (driver: .NET 8 LTS EOL 11/10/2026).
 **Agent:** Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot)
@@ -28,7 +28,9 @@
 
 ## .NET 10 Upgrade Track (Handoff)
 
-- Title: Upgrade `Postal.Api` + `Postal.Function` from `net8.0` to `net10.0`
+> Canonical procedure: spec.md v1.4 → "Runtime Upgrade Policy (.NET 10)" (segments 1–6 with per-segment done criteria). The steps below mirror it; if they diverge, the spec wins.
+
+- Title: Upgrade `Postal.Api` + `Postal.Function` + `Postal.Api.Tests` from `net8.0` to `net10.0`
 - Owner: unassigned
 - Branch: `postal/net10-upgrade`
 - Files to change:

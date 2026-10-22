@@ -1,6 +1,6 @@
 # Spec: Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL
 
-Version 1.3, 2026-10-21 (v1.3: added .NET 10 upgrade policy and segmented handoff tasks due .NET 8 LTS EOL on 2026-11-10)
+Version 1.4, 2026-10-21 (v1.4: optimized .NET 10 upgrade instructions — full solution scope incl. test project, per-segment done criteria, CI/IaC runtime pins, hosting clarification, rollback plan; v1.3: added .NET 10 upgrade policy and segmented handoff tasks due .NET 8 LTS EOL on 2026-11-10)
 
 > **Source-app note:** `trunk/Form1.vb` is a **VB.NET WinForms** app (.NET Framework, `System.Data.SqlClient`) — **not VB6/COM**. No COM DLLs or OLE DB. Moving parts: fixed-width parser, `TRUNCATE` + row inserts into `Delstat`, then `EXEC Postalweb` and `EXEC Postalwebboth`. "VB6" in older notes means this desktop app.
 
@@ -10,20 +10,34 @@ Read this file and the desktop project. Produce a .NET web app that preserves fi
 
 ## Runtime Upgrade Policy (.NET 10)
 
-This project must move from `net8.0` to `net10.0` before **2026-11-10**.
+**Deadline:** .NET 8 LTS reaches end of support on **2026-11-10**. All projects must build and run on `net10.0` instead.
+
+**Scope — every project in `Postal.sln`:**
+
+| Project | Target | Notes |
+|---------|--------|-------|
+| `src/Postal.Api/Postal.Api.csproj` | `net10.0` | ASP.NET Core web app (upload page + import API) |
+| `src/Postal.Function/Postal.Function.csproj` | `net10.0` | Isolated worker Function (queue-trigger ImportWorker) |
+| `tests/Postal.Api.Tests/Postal.Api.Tests.csproj` | `net10.0` | xUnit test project |
+
+**No functional changes expected.** Parser, API, and worker logic are runtime-agnostic; this is a TFM + package + hosting compatibility upgrade only.
 
 ### Segmented upgrade tasks (handoff-ready)
 
-1. **SDK**
-   - Install .NET 10 SDK on dev + CI.
-   - Update `global.json` if present to SDK `10.0.x`.
+Execute segments **in order**. Each segment is independently committable and has a done criterion — do not start the next segment until the current one's check passes.
 
-2. **Retarget both projects**
-   - `src/Postal.Api/Postal.Api.csproj` → `<TargetFramework>net10.0</TargetFramework>`
-   - `src/Postal.Function/Postal.Function.csproj` → `<TargetFramework>net10.0</TargetFramework>`
+**Segment 1 — SDK**
+- Install the .NET 10 SDK on the dev machine and the CI runner.
+- If `global.json` exists, set it to SDK `10.0.x`.
+- **Done when:** `dotnet --list-sdks` shows `10.0.x` and `dotnet build Postal.sln` still succeeds (the 10.x SDK builds `net8.0` targets fine).
+***COMPLETE***
 
-3. **Postal.Function (isolated worker)**
-   - Preferred project SDK:
+**Segment 2 — Retarget all three projects**
+- Set `<TargetFramework>net10.0</TargetFramework>` in each csproj in the scope table.
+- **Done when:** `dotnet build Postal.sln` succeeds with 0 errors.
+
+**Segment 3 — Postal.Function isolated worker SDK switch**
+- Switch the project SDK to `Azure.Functions.Sdk/1.0.0`:
 
 ```xml
 <Project Sdk="Azure.Functions.Sdk/1.0.0">
@@ -32,30 +46,50 @@ This project must move from `net8.0` to `net10.0` before **2026-11-10**.
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Azure.Functions.Worker" Version="2.52.0" />
-    <!-- other Worker.Extensions.* as needed -->
+    <!-- keep existing Worker.Extensions.* packages; update versions in Segment 4 -->
   </ItemGroup>
 </Project>
 ```
 
-   - Remove `Microsoft.Azure.Functions.Worker.Sdk` package when switching to `Azure.Functions.Sdk`.
-   - Remove `OutputType` and `AzureFunctionsVersion` if using `Azure.Functions.Sdk`.
-   - Minimum worker version for .NET 10: **2.50.0+**.
+- Remove the `Microsoft.Azure.Functions.Worker.Sdk` PackageReference (replaced by the project SDK).
+- Remove the `OutputType` and `AzureFunctionsVersion` properties (managed by the new SDK).
+- Minimum worker version for .NET 10: **2.50.0+** (use `2.52.0`).
+- **Done when:** `dotnet build` succeeds and the local host (`func start`) discovers the queue trigger.
 
-4. **Package sweep**
-   - Update Storage, SqlClient, Identity, App Insights, bindings, and related packages to net10-compatible versions.
-   - Run `dotnet restore` and resolve any package/runtime breaks.
+**Segment 4 — Package sweep**
+- In each project run `dotnet list package --outdated` and update to net10-compatible versions:
+  - `Azure.Storage.Blobs`, `Azure.Storage.Queues`
+  - `Azure.Identity`
+  - `Microsoft.Data.SqlClient`
+  - Application Insights telemetry packages
+  - `Microsoft.Azure.Functions.Worker.Extensions.*` (queue binding)
+- Run `dotnet restore` and resolve any package/runtime breaks.
+- **Done when:** `dotnet build Postal.sln` 0 errors and `dotnet test .\tests\Postal.Api.Tests\Postal.Api.Tests.csproj -c Debug` all pass.
 
-5. **Hosting check**
-   - .NET 10 is **not supported** on Linux Consumption for Functions.
-   - Use **Flex Consumption** (recommended), Premium, or Dedicated/App Service plan.
-   - After deploy, set runtime stack to `DOTNET-ISOLATED|10.0` (or equivalent portal/CLI setting).
+**Segment 5 — CI + IaC runtime pins**
+- `.github/workflows/deploy-api-function.yml`: point `dotnet/setup-dotnet` at `10.0.x` (or at `global.json`).
+- `infra/bicep/main.bicep`: update runtime stacks — Function App `linuxFxVersion: 'DOTNET-ISOLATED|10.0'`, Web App `linuxFxVersion: 'DOTNET|10.0'`.
+- Hosting check: .NET 10 is **not supported** on Linux Consumption for Functions. The current shared **B1 dedicated App Service plan** is a supported option — **no plan change needed**. If the plan were ever switched to Consumption, use Flex Consumption (FC1) or Premium instead.
+- **Done when:** `az bicep build infra/bicep/main.bicep` exits 0 and the workflow YAML is valid.
 
-6. **Validate**
-   - `dotnet build Postal.sln`
-   - Local Functions host + API tests
-   - Deploy to staging/pre-prod and confirm function discovery + runtime health.
+**Segment 6 — Validate + deploy**
+1. `dotnet build Postal.sln` — 0 errors.
+2. `dotnet test .\tests\Postal.Api.Tests\Postal.Api.Tests.csproj -c Debug` — all pass.
+3. Local smoke: `func start` + API create/complete/sas-refresh paths.
+4. Deploy to Azure (P0 procedure in `status.md`); confirm runtime stacks: `az functionapp show -g Syntax -n postal-worker --query config.linuxFxVersion` and `az webapp show -g Syntax -n postal-api --query config.linuxFxVersion` both report `10.0`.
+5. E2E import smoke: generate `sample.wrk` via `testdata/generate_sample.ps1`, run the full import, confirm `ImportJob.Status = Succeeded` and `RowsWritten > 0`.
+- **Done when:** all five checks pass against the deployed apps.
 
-No functional parser changes are expected for isolated worker beyond TFM/packages/hosting compatibility checks.
+### Rollback
+
+Revert the upgrade commit(s) (TFM + packages + CI/IaC pins) and redeploy with the .NET 8 SDK. All Azure resources (B1 plan, storage, SQL, identity) are runtime-agnostic — no infrastructure rollback is required.
+
+### Acceptance criteria (upgrade complete)
+
+- `dotnet build Postal.sln` succeeds with all three projects on `net10.0`.
+- API create/complete/sas-refresh paths function correctly.
+- Function queue worker completes an import with `ImportJob.Status = Succeeded` and `RowsWritten > 0`.
+- Deployed runtime stacks report `10.0` for both the Web App and the Function App.
 
 ## Goal
 
@@ -207,7 +241,7 @@ SAS: user-delegation via managed identity, Create + Write only, expiry ≤ 1 hou
 
 ```
 infra/                  # Bicep (or azd bicep project): storage, queue, app service, SQL, MI, roles
-src/ImportWeb/          # ASP.NET Core 8 + one upload page
+src/ImportWeb/          # ASP.NET Core 10 + one upload page
 src/ImportWeb/wwwroot/  # page, @azure/storage-blob
 src/Import.Core/        # DelstatParser, job model
 src/Import.Worker/      # queue consumer or Functions
