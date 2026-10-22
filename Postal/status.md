@@ -1,6 +1,6 @@
 # Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL — Implementation Status
 
-**Last Updated:** 2026-10-22T18:00:00Z (spec v1.4; API + Function both live in Azure; Application Insights removed from Postal.Function deployment; end-to-end validation remains pending)
+**Last Updated:** 2026-10-22T20:50:00Z (spec v1.4; `POSTAL_IMPORTS_CONTAINER` remains the canonical Azure env var, SAS uploads require `x-ms-blob-type: BlockBlob`, and API responses include `uploadNote`; container-targeting + validation script diagnostics were hardened; API + Function both live in Azure; end-to-end validation remains pending)
 **Spec Version:** 1.4  
 **Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete, Azure API + Function live, worker validation pending).  
 **Implementation Phase:** Azure API + Function live; end-to-end validation in progress** ✅.
@@ -30,7 +30,8 @@ az functionapp config appsettings list --resource-group "<resource-group>" --nam
 $apiBaseUrl = "https://<api-hostname>"
 $job = Invoke-RestMethod -Uri "$apiBaseUrl/api/imports" -Method Post -ContentType "application/json" -Body (@{ originalFileName = "sample.wrk"; sizeBytes = 309 } | ConvertTo-Json)
 Write-Host "JobId=$($job.jobId)"
-Invoke-WebRequest -Uri $job.sasUri -Method Put -InFile ".\testdata\sample.wrk" -ContentType "application/octet-stream" | Out-Null
+Write-Host "SAS container: $(([System.Uri]$job.sasUrl).AbsolutePath.Trim('/').Split('/')[0])"
+Invoke-WebRequest -Uri $job.sasUri -Method Put -InFile ".\testdata\sample.wrk" -Headers @{"x-ms-blob-type"="BlockBlob"} -ContentType "application/octet-stream" | Out-Null
 Invoke-RestMethod -Uri "$apiBaseUrl/api/imports/$($job.jobId)/complete" -Method Post -ContentType "application/json"
 ```
 
@@ -40,6 +41,7 @@ Use placeholder names and hostnames in status notes; do not store raw connection
 
 ## Live deployment (✅)
 
+- ✅ `Postal.Function` now emits a sanitized SQL configuration log summary at startup (DataSource, InitialCatalog, auth/transport flags, and presence booleans only). Raw `POSTAL_DB_CONN`, password values, and tokens are never logged. Branch: `postal-azure-function-worker`.
 - ✅ `Postal.Api` is live in Azure App Service at http://postal-api.azurewebsites.net/ (verified 2026-10-22T17:20:00Z via Visual Studio publish). Branch: `postal-azure-function-worker`.
 - ✅ `Postal.Function` is live in Azure Functions as `SyntaxPostalFunctionV1` at https://syntaxpostalfunctionv1-bubfbtc3adcqc2fn.westus3-01.azurewebsites.net (verified deployment response 2026-10-22T07:48:59Z). This was deployed using the zip fallback due to the .NET 10 `UseBlobContainerDeploy` bug.
 - ✅ Application Insights instrumentation was removed from `Postal.Function` for the deployed app `SyntaxPostalFunctionV1` to match the current deployment configuration. The app is deployed and running without App Insights telemetry attached.
@@ -47,6 +49,10 @@ Use placeholder names and hostnames in status notes; do not store raw connection
 - ⏳ End-to-end import validation against the live worker remains pending.
 
 ## Completed (✅)
+
+- ✅ Container mismatch hardening for SAS upload flow (2026-10-22): `POSTAL_IMPORTS_CONTAINER` is now used by `ImportJobRepository` when building `BlobName` (default `imports`), `BlobSasService` now calls `CreateIfNotExistsAsync` for the target container before minting SAS, and `tests/Postal.LiveValidation.ps1` now prints `SAS container: <name>` to surface mismatches quickly. Files: `src/Postal.Api/Data/ImportJobRepository.cs`, `src/Postal.Api/Services/BlobSasService.cs`, `tests/Postal.LiveValidation.ps1`, `README.md`. Branch: `postal-azure-function-worker`. Agent: Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot).
+
+- ✅ Client-side SAS upload requirement documented and validation script updated (2026-10-22): uploads to the SAS URL must include `x-ms-blob-type: BlockBlob` on the `PUT` request. Updated files: `tests/Postal.LiveValidation.ps1`, `README.md`, `DEPLOYMENT_STATUS.md`, `Postal/spec.md`, and this tracker command block. Branch: `postal-azure-function-worker`. Agent: Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot).
 
 - ✅ Verified live deployment: http://postal-api.azurewebsites.net/ is responding after Visual Studio publish of `Postal.Api` (2026-10-22T17:20:00Z). API is live and reachable.
 

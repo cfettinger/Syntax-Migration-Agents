@@ -157,6 +157,7 @@ Replace the desktop app that reads a large local file and writes rows to a datab
   - Least privilege: no full `db_owner`, no storage `Owner`.
 - Do not copy legacy credentials (`syntaxpostal` / `DBCLUSTER` / password in source) into config.
 - Observability: Application Insights on the App Service (and the Function if used). Log start, checkpoint, completion, and failure of every import with `jobId` as the correlation ID — track completion, not just start.
+  - Worker startup diagnostics must log a **sanitized** SQL configuration summary (server/catalog/auth mode and boolean flags only). Never log raw connection strings, passwords, access tokens, or secret values.
 
 ## Runtime flow
 
@@ -265,13 +266,16 @@ Remaining fields in the 309-byte layout (`layout/delstat.doc`) stay ignored.
 
 ## API
 
-- `POST /api/imports` — `{ fileName, sizeBytes, contentType }` → `{ jobId, uploadUrl, blobName }`
+- `POST /api/imports` — `{ fileName, sizeBytes, contentType }` → `{ jobId, uploadUrl, blobName, uploadNote }`
 - `POST /api/imports/{jobId}/complete` — blob must exist and size > 0; 409 if `Running` or `Succeeded`; else enqueue once and return 202
 - `POST /api/imports/{jobId}/sas-refresh` — job must be `Queued` (re-upload in progress); returns a fresh ≤ 1-hour SAS for the same blob. Never mints SAS for `Running`/`Succeeded`.
 - `GET /api/imports/{jobId}` — job row
 - Auth: legacy had none. Add ASP.NET Core cookie auth with one admin user in configuration (password from App Service settings / Key Vault, not source). Do not leave the SAS endpoint anonymous in production.
 
 SAS: user-delegation via managed identity, Create + Write only, expiry ≤ 1 hour, one blob. (User-delegation keys are valid up to 7 days; 1 hour is a policy choice, not a limit.)
+Container source: `POSTAL_IMPORTS_CONTAINER` (default `imports`); the blob name is built as `<container>/<jobId>/<file>`, and the SAS URL must target that exact container.
+For direct `PUT` uploads to the SAS URL, the client must send `x-ms-blob-type: BlockBlob`.
+The API should include an `uploadNote` on the SAS response and on `sas-refresh` responses so any caller knows to send the header before the `PUT`.
 
 ## Project layout
 
