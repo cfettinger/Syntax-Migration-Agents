@@ -304,12 +304,49 @@ Remaining fields in the 309-byte layout (`layout/delstat.doc`) stay ignored.
 - `POST /api/imports/{jobId}/complete` — blob must exist and size > 0; 409 if `Running` or `Succeeded`; else enqueue once and return 202
 - `POST /api/imports/{jobId}/sas-refresh` — job must be `Queued` (re-upload in progress); returns a fresh ≤ 1-hour SAS for the same blob. Never mints SAS for `Running`/`Succeeded`.
 - `GET /api/imports/{jobId}` — job row
-- Auth: legacy had none. Add ASP.NET Core cookie auth with one admin user in configuration (password from App Service settings / Key Vault, not source). Do not leave the SAS endpoint anonymous in production.
+- Auth: the deployed app uses Azure App Service Easy Auth (Microsoft Entra ID) as the chosen path. Configure it in the Azure portal on the Web App; no code changes required. Protect `/Upload` and the import API endpoints by requiring authentication at the App Service layer. Do not leave the SAS endpoint anonymous in production.
+
+### Authentication options
+
+**Chosen path: Azure App Service Easy Auth (Microsoft Entra ID)**
+- Fastest path to protect the app with no code changes.
+- Configure in Azure Portal → App Service → Authentication → Add identity provider → Microsoft.
+- Requires an Entra app registration and redirects unauthenticated requests to login.
+- Best fit for this project because the app is a simple upload portal and the browser upload is direct-to-blob.
+
+**Other options**
+- `Microsoft.Identity.Web` in ASP.NET Core: more control with code, app registration, and `[Authorize]` attributes or policy-based auth; use when app-level authorization needs custom business logic.
+- Custom OIDC or MSAL integration: possible but not needed for this project.
+- Cookie auth with a local admin user is a fallback only if Easy Auth is not possible; it should not be the default because it adds extra operational complexity and is harder to manage securely.
 
 SAS: user-delegation via managed identity, Create + Write only, expiry ≤ 1 hour, one blob. (User-delegation keys are valid up to 7 days; 1 hour is a policy choice, not a limit.)
 Container source: `POSTAL_IMPORTS_CONTAINER` (default `imports`); the blob name is built as `<container>/<jobId>/<file>`, and the SAS URL must target that exact container.
 For direct `PUT` uploads to the SAS URL, the client must send `x-ms-blob-type: BlockBlob`.
 The API should include an `uploadNote` on the SAS response and on `sas-refresh` responses so any caller knows to send the header before the `PUT`.
+
+### Easy Auth setup (portal-only, Microsoft Entra ID)
+
+**Prerequisites**
+- App deployed to Azure App Service.
+- Azure portal access with permission to create app registrations in the Entra tenant.
+
+**Steps**
+1. Azure portal → App Service → **Settings** → **Authentication** → **Add identity provider**.
+2. Choose **Microsoft** as the identity provider.
+3. Use **Workforce** configuration for the current tenant.
+4. Create a new app registration (for example `PostalApi-Auth`) with **Current tenant – Single tenant** account type.
+5. Keep the default security settings and enable the app registration.
+6. In App Service authentication settings, set **Restrict access** to **Require authentication** and **Unauthenticated requests** to **HTTP 302 Found redirect**.
+7. Save the configuration. Azure creates the redirect URI `https://<yourapp>.azurewebsites.net/.auth/login/aad/callback` and enables Easy Auth.
+
+**Result**
+- Anyone hitting `/Upload` or other protected routes is redirected to Microsoft Entra sign-in and then returned to the app after successful authentication.
+- No app code changes are required to enforce sign-in at the App Service layer.
+
+**Notes**
+- App registration/client secret expiration management is required; secrets may need renewal later.
+- Easy Auth handles authentication; authorization (group membership, custom role checks) is still an application concern if needed.
+- Test in a private/incognito browser window.
 
 ## Project layout
 
