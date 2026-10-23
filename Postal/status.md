@@ -1,8 +1,8 @@
 # Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL — Implementation Status
 
-**Last Updated:** 2026-10-23T14:45:00Z (spec v1.5; Upload UI is live at `http://postal-api.azurewebsites.net/Upload`; API was redeployed after aligning queue message encoding with the Azure Functions host; upload flow has not yet been re-tested in Azure after the fix; SAS uploads still require `x-ms-blob-type: BlockBlob`.)
+**Last Updated:** 2026-10-23T14:45:00Z (spec v1.5; Upload UI is live at `http://postal-api.azurewebsites.net/Upload`; API was redeployed after aligning queue message encoding with the Azure Functions host; **end-to-end upload validation PASSED in Azure via `tests/Postal.LiveValidation.ps1`**; SAS uploads still require `x-ms-blob-type: BlockBlob`.)
 **Spec Version:** 1.5  
-**Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete ✅, Azure API + Function live ✅, upload UI feature complete ✅, queue encoding alignment fix deployed ✅, live upload validation pending 🟡).  
+**Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete ✅, Azure API + Function live ✅, upload UI feature complete ✅, queue encoding alignment fix deployed ✅, end-to-end upload validation PASSED ✅).  
 **Implementation Phase:** ✅ DEPLOYED TO PRODUCTION — API + Function live after redeploy; live upload page available; Azure E2E upload validation pending after queue encoding remediation.
 **Agent:** Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot; model: GPT-5 / GitHub Copilot harness)
 
