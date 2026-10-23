@@ -182,15 +182,28 @@ Replace the desktop app that reads a large local file and writes rows to a datab
 
 ## Runtime flow
 
-1. `GET /` serves the upload page.
+1. `GET /` serves the upload page (Razor page `Pages/Upload.cshtml` in Postal.Api). Page displays a modern drag-and-drop file input with real-time upload progress tracking and job status polling.
 2. User selects a file. Browser calls `POST /api/imports` with file name, size, and content type. No file bytes. Reject `sizeBytes` above ~10 GB (client block upload buffers data in memory; the documented national file is ~209 MB, so cap with margin — record the chosen cap in `CONVERSION.md`).
 3. API inserts `ImportJob` (`Queued`, new guid, blob name `imports/{jobId}/{originalFileName}`) and returns a user-delegation SAS (Create + Write, ≤ 1 hour) scoped to that blob.
 4. Browser uses `@azure/storage-blob` `BlockBlobClient.uploadData` (block size 4–8 MB, concurrency 2–4, retries) against the SAS URL.
 5. On commit, browser calls `POST /api/imports/{jobId}/complete`.
 6. API checks the blob exists and has size > 0. If status is already `Running` or `Succeeded`, return 409. Otherwise set `Queued` and enqueue `{ jobId }` once.
 7. Worker dequeues with a visibility timeout long enough for the longest job. Sets `Running` only if status is `Queued` (compare-and-set). Opens the blob with `BlobClient.OpenRead()` (seekable). Parses, writes batches with transient-fault retry, sets `Succeeded` or `Failed`.
-8. Page polls `GET /api/imports/{jobId}`.
+8. Page polls `GET /api/imports/{jobId}` every 2 s; displays job status (Queued, Running, Succeeded, Failed) and `RowsWritten` count.
 9. If a large upload outlives the 1-hour SAS (slow link), the browser gets `StorageRetryError` (403) mid-upload; it calls `POST /api/imports/{jobId}/sas-refresh` (auth'd, job in `Queued`) for a new SAS and re-runs the upload (`uploadData` is idempotent per block key). A plain retry without refresh will never clear. Note: after `/complete` the job remains `Queued` until a worker claims it and transitions it to `Running`, so a SAS refresh is still possible during that window.
+
+### Upload UI (Postal.Api/Pages/Upload.cshtml)
+
+- **File input:** Drag-and-drop or click to select `.wrk` (CRLF) or `.txt` (raw) files up to 10 GB.
+- **Upload progress:** Shows real-time file upload percentage while transferring blocks to Blob Storage.
+- **Status polling:** After upload, polls `/api/imports/{jobId}` every 2 seconds to show:
+  - Job ID (for tracking)
+  - File name and size
+  - Import status badge (Queued, Running, Succeeded, Failed)
+  - Row count written (`RowsWritten`)
+- **Error handling:** User-friendly alerts for upload failures, SAS expiration, or job failures.
+- **Styling:** Modern gradient UI with accessibility; responsive for mobile and desktop.
+- **CDN:** Uses `@azure/storage-blob` from CDN (no build step required).
 
 ## Lease
 
