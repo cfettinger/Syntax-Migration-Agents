@@ -3,7 +3,7 @@
 **Last Updated:** 2026-10-23T14:45:00Z (spec v1.5; Upload UI is live at `http://postal-api.azurewebsites.net/Upload`; API was redeployed after aligning queue message encoding with the Azure Functions host; **end-to-end upload validation PASSED in Azure via `tests/Postal.LiveValidation.ps1`**; SAS uploads still require `x-ms-blob-type: BlockBlob`.)
 **Spec Version:** 1.5  
 **Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete ✅, Azure API + Function live ✅, upload UI feature complete ✅, queue encoding alignment fix deployed ✅, end-to-end upload validation PASSED ✅).  
-**Implementation Phase:** ✅ DEPLOYED TO PRODUCTION — API + Function live after redeploy; live upload page available; Azure E2E upload validation pending after queue encoding remediation.
+**Implementation Phase:** ✅ DEPLOYED TO PRODUCTION — API + Function live after redeploy; live upload page available; Azure E2E upload validation PASSED ✅ (`Postal.LiveValidation.ps1`).
 **Agent:** Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot; model: GPT-5 / GitHub Copilot harness)
 
 > Deployment note: `QueueClientOptions.MessageEncoding = QueueMessageEncoding.Base64` was added to `src/Postal.Api/Services/ImportJobService.cs` to match the Function host `messageEncoding: "base64"`. This was deployed to Azure, and the upload page is live at http://postal-api.azurewebsites.net/Upload. Upload and asset processing still need a live smoke test after redeploy.
