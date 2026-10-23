@@ -1,9 +1,9 @@
 # Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL — Implementation Status
 
-**Last Updated:** 2026-10-23T14:30:00Z (spec v1.5; Upload UI live via Razor page with real-time progress tracking and job status polling; managed identity required for `postal-api` App Service; `POSTAL_IMPORTS_CONTAINER` canonical; SAS uploads require `x-ms-blob-type: BlockBlob`; **DEPLOYMENT SUCCESS: Both Postal.Api and Postal.Function deployed to Azure and running live**; post-deployment validation in progress)
+**Last Updated:** 2026-10-23T14:45:00Z (spec v1.5; Upload UI was fixed and re-published; the Razor page now builds cleanly and is live in Azure; both `postal-api` and `postal-function` are deployed; SAS uploads still require `x-ms-blob-type: BlockBlob`; post-deployment validation remains in progress)
 **Spec Version:** 1.5  
-**Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete ✅, Azure API + Function live ✅, upload UI feature complete ✅, post-deployment validation in progress 🟡).  
-**Implementation Phase:** ✅ DEPLOYED TO PRODUCTION — Code + UI + Functions live; E2E validation in progress.
+**Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete ✅, Azure API + Function live ✅, upload UI feature complete ✅, dashboard updated after publish fix, post-deployment validation in progress 🟡).  
+**Implementation Phase:** ✅ DEPLOYED TO PRODUCTION — Code + UI + Functions live after republish; E2E validation in progress.
 **Agent:** Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot)
 
 ## Azure managed identity setup for `postal-api`
@@ -77,9 +77,9 @@ Use placeholder names and hostnames in status notes; do not store raw connection
 ## Live deployment (✅)
 
 - ✅ `Postal.Function` now emits a sanitized SQL configuration log summary at startup (DataSource, InitialCatalog, auth/transport flags, and presence booleans only). Raw `POSTAL_DB_CONN`, password values, and tokens are never logged. Branch: `postal-azure-function-worker`.
-- ✅ `Postal.Api` is live in Azure App Service at http://postal-api.azurewebsites.net/ (verified 2026-10-22T17:20:00Z via Visual Studio publish). Branch: `postal-azure-function-worker`.
-- ✅ `Postal.Function` is live in Azure Functions (deployed via Azure Functions CLI; 2026-10-23T14:30:00Z). Queue worker subscribed to POSTAL_IMPORT_QUEUE and processing ImportJob messages. Runtime: .NET 10.0 (DOTNETCORE-ISOLATED|10.0). Status: Running and actively consuming queue messages.
-- 🟡 Post-deployment validation: E2E smoke test flow pending — will run sample.wrk upload → /complete → Function processing → status polling until Succeeded.
+- ✅ `Postal.Api` is live in Azure App Service at https://postal-api.azurewebsites.net/ (published via Visual Studio after the Razor page fix; Upload UI reachable at `/` and `/Upload`). Branch: `postal-azure-function-worker`.
+- ✅ `Postal.Function` is live in Azure Functions (deployed via Azure Functions CLI; 2026-10-23T14:30:00Z). Queue worker subscribed to `POSTAL_IMPORT_QUEUE` and processing `ImportJob` messages. Runtime: .NET 10.0 (DOTNET-ISOLATED|10.0). Status: Running and actively consuming queue messages.
+- 🟡 Post-deployment validation: E2E smoke test flow in progress — run sample.wrk upload → POST /complete → function processing → status polling until Succeeded, then confirm the SQL row count increases.
 
 ## Completed (✅)
 
