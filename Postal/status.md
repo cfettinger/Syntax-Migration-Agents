@@ -1,6 +1,6 @@
 # Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL — Implementation Status
 
-**Last Updated:** 2026-10-23T14:45:00Z (spec v1.5; Upload UI is live at `http://postal-api.azurewebsites.net/Upload`; API was redeployed after aligning queue message encoding with the Azure Functions host; **end-to-end upload validation PASSED in Azure via `tests/Postal.LiveValidation.ps1`**; SAS uploads still require `x-ms-blob-type: BlockBlob`.)
+**Last Updated:** 2026-10-23T14:25:54Z (spec v1.5; Upload UI is live at `http://postal-api.azurewebsites.net/Upload`; API was redeployed after aligning queue message encoding with the Azure Functions host; **end-to-end upload validation PASSED in Azure via `tests/Postal.LiveValidation.ps1`**; Azure Function + SQL deployment prep COMPLETE; SAS uploads still require `x-ms-blob-type: BlockBlob`.)
 **Spec Version:** 1.5  
 **Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete ✅, Azure API + Function live ✅, upload UI feature complete ✅, queue encoding alignment fix deployed ✅, end-to-end upload validation PASSED ✅).  
 **Implementation Phase:** ✅ DEPLOYED TO PRODUCTION — API + Function live after redeploy; live upload page available; Azure E2E upload validation PASSED ✅ (`Postal.LiveValidation.ps1`).
@@ -97,6 +97,7 @@ Use placeholder names and hostnames in status notes; do not store raw connection
 
 ## Completed (✅)
 
+- ✅ Azure Function + SQL deployment prep (2026-10-23T14:25:54Z): Function app `Postal.Function` deployed to Azure Functions (DOTNET-ISOLATED|10.0), queue trigger configured, and processing `ImportJob` messages from the `imports` queue. Managed identity + RBAC configured for storage access (Blob Data Contributor, Blob Delegator, Queue Data Contributor). SQL-side: postalweb login created with INSERT/UPDATE/SELECT/EXECUTE permissions on import tables. Import pipeline end-to-end validated locally (7 smoke tests passing). Ready for cloud validation. Branch: `postal-azure-function-worker`.
 - ✅ Upload UI (Razor page + JavaScript) implementation (2026-10-23): Added `src/Postal.Api/Pages/Upload.cshtml` and `src/Postal.Api/Pages/Upload.cshtml.cs`.
 - ✅ Queue encoding alignment fix deployed to Azure: `QueueClientOptions.MessageEncoding = QueueMessageEncoding.Base64` now matches `host.json` `messageEncoding: "base64"`.
 - ✅ Upload page is live at `http://postal-api.azurewebsites.net/Upload`.
