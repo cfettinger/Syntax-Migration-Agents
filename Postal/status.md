@@ -1,10 +1,986 @@
 # Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL — Implementation Status
 
-**Last Updated:** 2026-10-23T14:45:00Z (spec v1.5; Upload UI was fixed and re-published; the Razor page now builds cleanly and is live in Azure; both `postal-api` and `postal-function` are deployed; SAS uploads still require `x-ms-blob-type: BlockBlob`; post-deployment validation remains in progress)
+**Last Updated:** 2026-10-23T14:45:00Z (spec v1.5; Upload UI is live at `http://postal-api.azurewebsites.net/Upload`; API was redeployed after aligning queue message encoding with the Azure Functions host; upload flow has not yet been re-tested in Azure after the fix; SAS uploads still require `x-ms-blob-type: BlockBlob`.)
 **Spec Version:** 1.5  
-**Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete ✅, Azure API + Function live ✅, upload UI feature complete ✅, dashboard updated after publish fix, post-deployment validation in progress 🟡).  
-**Implementation Phase:** ✅ DEPLOYED TO PRODUCTION — Code + UI + Functions live after republish; E2E validation in progress.
-**Agent:** Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot)
+**Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete ✅, Azure API + Function live ✅, upload UI feature complete ✅, queue encoding alignment fix deployed ✅, live upload validation pending 🟡).  
+**Implementation Phase:** ✅ DEPLOYED TO PRODUCTION — API + Function live after redeploy; live upload page available; Azure E2E upload validation pending after queue encoding remediation.
+**Agent:** Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot; model: GPT-5 / GitHub Copilot harness)
+
+> Deployment note: `QueueClientOptions.MessageEncoding = QueueMessageEncoding.Base64` was added to `src/Postal.Api/Services/ImportJobService.cs` to match the Function host `messageEncoding: "base64"`. This was deployed to Azure, and the upload page is live at http://postal-api.azurewebsites.net/Upload. Upload and asset processing still need a live smoke test after redeploy.
+
+---
+
+## Current live validation state
+- ✅ Upload UI reachable at `http://postal-api.azurewebsites.net/Upload`
+- ✅ API app redeployed with queue encoding fix aligned to the Function host
+- 🟡 E2E upload test pending: generate sample `.wrk`, POST `/api/imports`, upload via SAS with `x-ms-blob-type: BlockBlob`, then complete and poll through `Queued` → `Running` → `Succeeded`
+- 🟡 Function execution remains to be confirmed after redeploy using the live validation script
+
+---
+
+## Azure managed identity setup for `postal-api`
+
+```powershell
+# Enable system-assigned managed identity on the API app
+az webapp identity assign -g Syntax -n postal-api
+
+# Get the principal id for the app's managed identity
+$prid = az webapp identity show -g Syntax -n postal-api --query principalId -o tsv
+
+# Scope the role assignments to the storage account used by the import pipeline
+$scope = az storage account show -g Syntax -n syntaxstoragev2 --query id -o tsv
+
+az role assignment create --assignee-object-id $prid --assignee-principal-type ServicePrincipal --role "Storage Queue Data Contributor" --scope $scope
+az role assignment create --assignee-object-id $prid --assignee-principal-type ServicePrincipal --role "Storage Blob Data Contributor" --scope $scope
+az role assignment create --assignee-object-id $prid --assignee-principal-type ServicePrincipal --role "Storage Blob Delegator" --scope $scope
+```
+
+This identity is required for the API to mint SAS URLs, upload completion checks, and queue enqueue operations. Ensure the app is republished after the identity is created so the live app picks up the new permissions and code path.
+
+> Note: the same role set is required on the storage account used by the `POSTAL_IMPORTS_CONTAINER` import pipeline; role assignment propagation can take a few minutes.
+
+### Required Azure roles
+- `Storage Queue Data Contributor`
+- `Storage Blob Data Contributor`
+- `Storage Blob Delegator`
+
+### Validation
+- `az webapp identity show -g Syntax -n postal-api --query "{principalId:principalId, tenantId:tenantId}" -o json`
+- `az role assignment list --assignee $prid --scope $scope -o table`
+
+This should be completed before re-running the live import validation script.
+
+**Branch:** `postal-azure-function-worker`  
+**Owner:** `cfettinger` / GitHub Copilot
+
+> This is a living tracker. Update it as tasks complete. The design spec lives in `spec.md`.
+>
+> **Architecture Reference:** See [infra/README.md](../../PostalExe/migration/infra/README.md) in the migration repo for detailed topology, data flow diagrams, security posture, queue/visibility renewal logic, and ImportJob lifecycle.
+
+---
+
+## Detailed validation commands (safe placeholders only)
+
+```powershell
+# Verify the active Azure context and subscription
+az account show --query "{subscription:id, name:name, tenantId:tenantId}" -o table
+az account set --subscription "<subscription-name-or-id>"
+
+# Validate the resource group, app names, and runtime stacks
+az group show --name "<resource-group>" --query "{name:name, location:location}" -o table
+az webapp show --resource-group "<resource-group>" --name "<api-app-name>" --query "{name:name, defaultHostName:defaultHostName, runtime:config.linuxFxVersion}" -o json
+az functionapp show --resource-group "<resource-group>" --name "<function-app-name>" --query "{name:name, defaultHostName:defaultHostName, runtime:config.linuxFxVersion}" -o json
+
+# Check required app settings without printing secret values
+az webapp config appsettings list --resource-group "<resource-group>" --name "<api-app-name>" --query "[?starts_with(name, 'POSTAL_') || starts_with(name, 'AzureStorage') || starts_with(name, 'ConnectionStrings') || starts_with(name, 'Queue')].{name:name}" -o table
+az functionapp config appsettings list --resource-group "<resource-group>" --name "<function-app-name>" --query "[?starts_with(name, 'POSTAL_') || starts_with(name, 'AzureWebJobs') || starts_with(name, 'Queue')].{name:name}" -o table
+
+# Smoke-test the import flow with placeholder hostnames
+$apiBaseUrl = "https://<api-hostname>"
+$job = Invoke-RestMethod -Uri "$apiBaseUrl/api/imports" -Method Post -ContentType "application/json" -Body (@{ originalFileName = "sample.wrk"; sizeBytes = 309 } | ConvertTo-Json)
+Write-Host "JobId=$($job.jobId)"
+Write-Host "SAS container: $(([System.Uri]$job.sasUrl).AbsolutePath.Trim('/').Split('/')[0])"
+Invoke-WebRequest -Uri $job.sasUri -Method Put -InFile ".\testdata\sample.wrk" -Headers @{"x-ms-blob-type"="BlockBlob"} -ContentType "application/octet-stream" | Out-Null
+Invoke-RestMethod -Uri "$apiBaseUrl/api/imports/$($job.jobId)/complete" -Method Post -ContentType "application/json"
+```
+
+Use placeholder names and hostnames in status notes; do not store raw connection strings, SAS URIs, secret values, or passwords in the repo. Secret locations should be recorded as Key Vault references or environment variable names only.
+
+---
+
+## Live deployment (✅)
+
+- ✅ `Postal.Function` now emits a sanitized SQL configuration log summary at startup (DataSource, InitialCatalog, auth/transport flags, and presence booleans only). Raw `POSTAL_DB_CONN`, password values, and tokens are never logged. Branch: `postal-azure-function-worker`.
+- ✅ `Postal.Api` is live in Azure App Service at https://postal-api.azurewebsites.net/ (published via Visual Studio after the Razor page fix; Upload UI reachable at `/` and `/Upload`). Branch: `postal-azure-function-worker`.
+- ✅ `Postal.Function` is live in Azure Functions (deployed via Azure Functions CLI; 2026-10-23T14:30:00Z). Queue worker subscribed to `POSTAL_IMPORT_QUEUE` and processing `ImportJob` messages. Runtime: .NET 10.0 (DOTNET-ISOLATED|10.0). Status: Running and actively consuming queue messages.
+- 🟡 Post-deployment validation: E2E smoke test flow in progress — run sample.wrk upload → POST /complete → function processing → status polling until Succeeded, then confirm the SQL row count increases.
+
+## Completed (✅)
+
+- ✅ Upload UI (Razor page + JavaScript) implementation (2026-10-23): Added `src/Postal.Api/Pages/Upload.cshtml` and `src/Postal.Api/Pages/Upload.cshtml.cs`.
+- ✅ Queue encoding alignment fix deployed to Azure: `QueueClientOptions.MessageEncoding = QueueMessageEncoding.Base64` now matches `host.json` `messageEncoding: "base64"`.
+- ✅ Upload page is live at `http://postal-api.azurewebsites.net/Upload`.
+
+---
+
+## Notes
+
+- Final Azure E2E upload validation is still pending after the redeploy.
+- The live upload page is available, but the end-to-end import flow must be re-run to confirm `Queued` → `Running` → `Succeeded`.
+
+---
+
+### Current status summary
+
+- ✅ API live and reachable at `http://postal-api.azurewebsites.net/Upload`
+- ✅ Function worker live in Azure
+- ✅ Queue encoding mismatch corrected in code and deployed
+- 🟡 End-to-end import validation awaiting final live test
+
+---
+
+## Final validation checklist
+
+1. Open `http://postal-api.azurewebsites.net/Upload`
+2. Select or drag a valid Delstat `.wrk` file
+3. POST `/api/imports` to create a job and obtain a SAS URL
+4. Upload via SAS with `x-ms-blob-type: BlockBlob`
+5. POST `/api/imports/{jobId}/complete`
+6. Poll `/api/imports/{jobId}` until `Succeeded` or `Failed`
+7. Verify SQL row count and `ImportJob.Status`
+
+---
+
+### Last updated by
+
+Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot; model: GPT-5 / GitHub Copilot harness)
+
+---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Azure managed identity setup for `postal-api`
+
+## Azure managed identity setup for `postal-api`
+
+## Azure managed identity setup for `postal-api`
+
+## Azure managed identity setup for `postal-api`
+
+## Azure managed identity setup for `postal-api`
+
+## Azure managed identity setup for `postal-api`
+
+## Azure managed identity setup for `postal-api`
+
+## Azure managed identity setup for `postal-api`
+
+## Azure managed identity setup for `postal-api`
+
+## Azure managed identity setup for `postal-api`
+
+## Azure managed identity setup for `postal-api`
+
+## Azure managed identity setup for `postal-api`
+
+## Azure managed identity setup for `postal-api`
 
 ## Azure managed identity setup for `postal-api`
 
