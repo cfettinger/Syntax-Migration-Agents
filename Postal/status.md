@@ -29,7 +29,8 @@ The Postal API should use Azure App Service Authentication with Microsoft Entra 
 - Directory (tenant) ID: `5ca2facc-6cd7-48b3-82e4-b8c35d0b4dc7`
 - Application ID URI: `api://02f51b2c-4a1c-4f6b-91fc-0b44b14bb9eb`
 - Supported account type: `Single tenant / My organization only`
-- Redirect URI to verify in App Service: `https://<postal-api-host>.azurewebsites.net/.auth/login/aad/callback`
+- Redirect URI in App Service: `https://postal-api.azurewebsites.net/.auth/login/aad/callback`
+- Verified live hostname: `postal-api.azurewebsites.net` from the live upload page URL `http://postal-api.azurewebsites.net/Upload`
 - Client secret: store in Azure Key Vault or the app registration secret store only; never commit it to source
 
 ### Portal configuration
@@ -43,7 +44,74 @@ Use App Service → `Authentication` → `Add identity provider` → `Microsoft`
 
 This enforces sign-in before the portal or API can be called. The SAS upload is still direct-to-blob, but the entry points that create jobs and poll status must be behind App Service auth.
 
-**Next verification item:** confirm the live Azure host name for `postal-api` and update the redirect URI in the portal if the final hostname differs from the current deployment.
+**Verified:** the live Azure host name for `postal-api` is `postal-api.azurewebsites.net`, and the redirect URI is `https://postal-api.azurewebsites.net/.auth/login/aad/callback`.
+
+---
+
+## Azure managed identity setup for `postal-api`
+
+```powershell
+# Enable system-assigned managed identity on the API app
+az webapp identity assign -g Syntax -n postal-api
+
+# Get the principal id for the app's managed identity
+$prid = az webapp identity show -g Syntax -n postal-api --query principalId -o tsv
+
+# Scope the role assignments to the storage account used by the import pipeline
+$scope = az storage account show -g Syntax -n syntaxstoragev2 --query id -o tsv
+
+az role assignment create --assignee-object-id $prid --assignee-principal-type ServicePrincipal --role "Storage Queue Data Contributor" --scope $scope
+az role assignment create --assignee-object-id $prid --assignee-principal-type ServicePrincipal --role "Storage Blob Data Contributor" --scope $scope
+az role assignment create --assignee-object-id $prid --assignee-principal-type ServicePrincipal --role "Storage Blob Delegator" --scope $scope
+```
+
+This identity is required for the API to mint SAS URLs, upload completion checks, and queue enqueue operations. Ensure the app is republished after the identity is created so the live app picks up the new permissions and code path.
+
+> Note: the same role set is required on the storage account used by the `POSTAL_IMPORTS_CONTAINER` import pipeline; role assignment propagation can take a few minutes.
+
+### Required Azure roles
+- `Storage Queue Data Contributor`
+- `Storage Blob Data Contributor`
+- `Storage Blob Delegator`
+
+### Validation
+- `az webapp identity show -g Syntax -n postal-api --query "{principalId:principalId, tenantId:tenantId}" -o json`
+- `az role assignment list --assignee $prid --scope $scope -o table`
+
+This should be completed before re-running the live import validation script.
+
+**Branch:** `postal-azure-function-worker`  
+**Owner:** `cfettinger` / GitHub Copilot
+
+> This is a living tracker. Update it as tasks complete. The design spec lives in `spec.md`.
+>
+> **Architecture Reference:** See [infra/README.md](../../PostalExe/migration/infra/README.md) in the migration repo for detailed topology, data flow diagrams, security posture, queue/visibility renewal logic, and ImportJob lifecycle.
+
+---
+
+## Detailed validation commands (safe placeholders only)
+
+```powershell
+# Verify the active Azure context and subscription
+az account show --query "{subscription:id, name:name, tenantId:tenantId}" -o table
+az account set --subscription "<subscription-name-or-id>"
+
+# Validate the resource group, app names, and runtime stacks
+az group show --name "<resource-group>" --query "{name:name, location:location}" -o table
+az webapp show --resource-group "<resource-group>" --name "<api-app-name>" --query "{name:name, defaultHostName:defaultHostName, runtime:config.linuxFxVersion}" -o json
+az functionapp show --resource-group "<resource-group>" --name "<function-app-name>" --query "{name:name, defaultHostName:defaultHostName, runtime:config.linuxFxVersion}" -o json
+
+# Check required app settings without printing secret values
+az webapp config appsettings list --resource-group "<resource-group>" --name "<api-app-name>" --query "[?starts_with(name, 'POSTAL_') || starts_with(name, 'AzureStorage') || starts_with(name, 'ConnectionStrings') || starts_with(name, 'Queue')].{name:name}" -o table
+
+```
+
+---
+
+> This status entry is updated to reflect the verified live host `postal-api.azurewebsites.net` for the Azure App Service Easy Auth redirect URI.
+
+
+
 
 ---
 
