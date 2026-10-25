@@ -103,25 +103,6 @@ az functionapp show --resource-group "<resource-group>" --name "<function-app-na
 
 # Check required app settings without printing secret values
 az webapp config appsettings list --resource-group "<resource-group>" --name "<api-app-name>" --query "[?starts_with(name, 'POSTAL_') || starts_with(name, 'AzureStorage') || starts_with(name, 'ConnectionStrings') || starts_with(name, 'Queue')].{name:name}" -o table
-
-```
-
----
-
-## Detailed validation commands (safe placeholders only)
-
-```powershell
-# Verify the active Azure context and subscription
-az account show --query "{subscription:id, name:name, tenantId:tenantId}" -o table
-az account set --subscription "<subscription-name-or-id>"
-
-# Validate the resource group, app names, and runtime stacks
-az group show --name "<resource-group>" --query "{name:name, location:location}" -o table
-az webapp show --resource-group "<resource-group>" --name "<api-app-name>" --query "{name:name, defaultHostName:defaultHostName, runtime:config.linuxFxVersion}" -o json
-az functionapp show --resource-group "<resource-group>" --name "<function-app-name>" --query "{name:name, defaultHostName:defaultHostName, runtime:config.linuxFxVersion}" -o json
-
-# Check required app settings without printing secret values
-az webapp config appsettings list --resource-group "<resource-group>" --name "<api-app-name>" --query "[?starts_with(name, 'POSTAL_') || starts_with(name, 'AzureStorage') || starts_with(name, 'ConnectionStrings') || starts_with(name, 'Queue')].{name:name}" -o table
 az functionapp config appsettings list --resource-group "<resource-group>" --name "<function-app-name>" --query "[?starts_with(name, 'POSTAL_') || starts_with(name, 'AzureWebJobs') || starts_with(name, 'Queue')].{name:name}" -o table
 
 # Smoke-test the import flow with placeholder hostnames
