@@ -108,54 +108,6 @@ az webapp config appsettings list --resource-group "<resource-group>" --name "<a
 
 ---
 
-> This status entry is updated to reflect the verified live host `postal-api.azurewebsites.net` for the Azure App Service Easy Auth redirect URI.
-
-
-
-
----
-
-## Azure managed identity setup for `postal-api`
-
-```powershell
-# Enable system-assigned managed identity on the API app
-az webapp identity assign -g Syntax -n postal-api
-
-# Get the principal id for the app's managed identity
-$prid = az webapp identity show -g Syntax -n postal-api --query principalId -o tsv
-
-# Scope the role assignments to the storage account used by the import pipeline
-$scope = az storage account show -g Syntax -n syntaxstoragev2 --query id -o tsv
-
-az role assignment create --assignee-object-id $prid --assignee-principal-type ServicePrincipal --role "Storage Queue Data Contributor" --scope $scope
-az role assignment create --assignee-object-id $prid --assignee-principal-type ServicePrincipal --role "Storage Blob Data Contributor" --scope $scope
-az role assignment create --assignee-object-id $prid --assignee-principal-type ServicePrincipal --role "Storage Blob Delegator" --scope $scope
-```
-
-This identity is required for the API to mint SAS URLs, upload completion checks, and queue enqueue operations. Ensure the app is republished after the identity is created so the live app picks up the new permissions and code path.
-
-> Note: the same role set is required on the storage account used by the `POSTAL_IMPORTS_CONTAINER` import pipeline; role assignment propagation can take a few minutes.
-
-### Required Azure roles
-- `Storage Queue Data Contributor`
-- `Storage Blob Data Contributor`
-- `Storage Blob Delegator`
-
-### Validation
-- `az webapp identity show -g Syntax -n postal-api --query "{principalId:principalId, tenantId:tenantId}" -o json`
-- `az role assignment list --assignee $prid --scope $scope -o table`
-
-This should be completed before re-running the live import validation script.
-
-**Branch:** `postal-azure-function-worker`  
-**Owner:** `cfettinger` / GitHub Copilot
-
-> This is a living tracker. Update it as tasks complete. The design spec lives in `spec.md`.
->
-> **Architecture Reference:** See [infra/README.md](../../PostalExe/migration/infra/README.md) in the migration repo for detailed topology, data flow diagrams, security posture, queue/visibility renewal logic, and ImportJob lifecycle.
-
----
-
 ## Detailed validation commands (safe placeholders only)
 
 ```powershell
@@ -234,43 +186,6 @@ Use placeholder names and hostnames in status notes; do not store raw connection
 Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot; model: GPT-5 / GitHub Copilot harness)
 
 ---
-
-## Azure managed identity setup for `postal-api`
-
-```powershell
-# Enable system-assigned managed identity on the API app
-az webapp identity assign -g Syntax -n postal-api
-
-# Get the principal id for the app's managed identity
-$prid = az webapp identity show -g Syntax -n postal-api --query principalId -o tsv
-
-# Scope the role assignments to the storage account used by the import pipeline
-$scope = az storage account show -g Syntax -n syntaxstoragev2 --query id -o tsv
-
-az role assignment create --assignee-object-id $prid --assignee-principal-type ServicePrincipal --role "Storage Queue Data Contributor" --scope $scope
-az role assignment create --assignee-object-id $prid --assignee-principal-type ServicePrincipal --role "Storage Blob Data Contributor" --scope $scope
-az role assignment create --assignee-object-id $prid --assignee-principal-type ServicePrincipal --role "Storage Blob Delegator" --scope $scope
-```
-
-This identity is required for the API to mint SAS URLs, upload completion checks, and queue enqueue operations. Ensure the app is republished after the identity is created so the live app picks up the new permissions and code path.
-
-> Note: the same role set is required on the storage account used by the `POSTAL_IMPORTS_CONTAINER` import pipeline; role assignment propagation can take a few minutes.
-
-### Required Azure roles
-- `Storage Queue Data Contributor`
-- `Storage Blob Data Contributor`
-- `Storage Blob Delegator`
-
-### Validation
-- `az webapp identity show -g Syntax -n postal-api --query "{principalId:principalId, tenantId:tenantId}" -o json`
-- `az role assignment list --assignee $prid --scope $scope -o table`
-
-This should be completed before re-running the live import validation script.
-
-**Branch:** `postal-azure-function-worker`  
-**Owner:** `cfettinger` / GitHub Copilot
-
-> This is a living tracker. Update it as tasks complete. The design spec lives in `spec.md`.
 >
 > **Architecture Reference:** See [infra/README.md](../../PostalExe/migration/infra/README.md) in the migration repo for detailed topology, data flow diagrams, security posture, queue/visibility renewal logic, and ImportJob lifecycle.
 
@@ -326,65 +241,7 @@ Use placeholder names and hostnames in status notes; do not store raw connection
 
 - ✅ App service publish complete: http://postal-api.azurewebsites.net/ is live and serving the API (2026-10-22T17:20:00Z). Verified from browser after Visual Studio deployment.
 
-- ✅ Azure-hosted API published and verified: http://postal-api.azurewebsites.net/ (2026-10-22T17:20:00Z). The web app is live and serving traffic from Azure App Service.
-
-- ✅ Visual Studio deployment completed successfully for `Postal.Api`; app responds at http://postal-api.azurewebsites.net/ (2026-10-22T17:20:00Z). Live URL confirmed.
-
-- ✅ Verified Azure deploy for the API: http://postal-api.azurewebsites.net/ is serving the published app in Azure App Service (2026-10-22T17:20:00Z).
-
-- ✅ Live API endpoint confirmed after Visual Studio publish: http://postal-api.azurewebsites.net/ (2026-10-22T17:20:00Z). This confirms the Azure App Service deployment succeeded.
-
-- ✅ Visual Studio publish of the `Postal.Api` web app completed successfully and the public endpoint is live at http://postal-api.azurewebsites.net/ (verified 2026-10-22T17:20:00Z).
-
-- ✅ Live Azure deployment confirmed: `Postal.Api` is running at http://postal-api.azurewebsites.net/ following Visual Studio publish (2026-10-22T17:20:00Z). Verified by browser access.
-
-- ✅ Azure App Service deployment is confirmed live: http://postal-api.azurewebsites.net/ (2026-10-22T17:20:00Z). Visual Studio publish succeeded and the app is serving requests.
-
-- ✅ Deployment status update: the Azure-hosted API is live and responding at http://postal-api.azurewebsites.net/ (Visual Studio publish, 2026-10-22T17:20:00Z).
-
-- ✅ The `Postal.Api` app is live in Azure App Service at http://postal-api.azurewebsites.net/ (2026-10-22T17:20:00Z). Verified reachable after Visual Studio publish.
-
-- ✅ Published URL verified live: http://postal-api.azurewebsites.net/ (2026-10-22T17:20:00Z). This confirms the Azure App Service deployment of `Postal.Api` is successful.
-
-- ✅ Azure deploy success: `Postal.Api` is live via Visual Studio publish at http://postal-api.azurewebsites.net/ (confirmed 2026-10-22T17:20:00Z).
-
-- ✅ Visual Studio publish for `Postal.Api` was successful and the live endpoint is responding at http://postal-api.azurewebsites.net/ (2026-10-22T17:20:00Z).
-
-- ✅ Verified live Azure publish: http://postal-api.azurewebsites.net/ is online after publishing from Visual Studio (2026-10-22T17:20:00Z).
-
-- ✅ Deployment confirmed: `Postal.Api` published via Visual Studio and reachable at http://postal-api.azurewebsites.net/ (verified 2026-10-22T17:20:00Z).
-
-- ✅ `Postal.Api` is running in Azure App Service: http://postal-api.azurewebsites.net/ (publish verified via Visual Studio, 2026-10-22T17:20:00Z). This is the active app endpoint.
-
-- ✅ The API has been deployed to Azure and is live: http://postal-api.azurewebsites.net/ (verified 2026-10-22T17:20:00Z). Worker publish and import validation remain next.
-
-- ✅ Live Azure deployment: http://postal-api.azurewebsites.net/ is now responding (2026-10-22T17:20:00Z) after Visual Studio publish of `Postal.Api`.
-
-- ✅ Azure App Service deployment was successful and continues to serve the published API at http://postal-api.azurewebsites.net/ (2026-10-22T17:20:00Z).
-
-- ✅ Verified live app: http://postal-api.azurewebsites.net/ is accessible after Visual Studio deployment of `Postal.Api` (2026-10-22T17:20:00Z).
-
-- ✅ Azure App Service publish verified: http://postal-api.azurewebsites.net/ is up and serving the API (2026-10-22T17:20:00Z). This completes the live API deploy.
-
-- ✅ Postal API live: Visual Studio published `Postal.Api` to Azure App Service at http://postal-api.azurewebsites.net/ (2026-10-22T17:20:00Z). Verified accessible.
-
-- ✅ Site published to Azure via Visual Studio and responding at http://postal-api.azurewebsites.net/ (2026-10-22T17:20:00Z). This is a verified live deployment.
-
-- ✅ `Postal.Api` live in Azure App Service; endpoint responding at http://postal-api.azurewebsites.net/ (verified 2026-10-22T17:20:00Z). Visual Studio deployment was successful.
-
-- ✅ Verified deployment in Azure: http://postal-api.azurewebsites.net/ is running after a Visual Studio publish of the API project (2026-10-22T17:20:00Z).
-
-- ✅ Publication confirmed: Azure App Service is serving the app at http://postal-api.azurewebsites.net/ (2026-10-22T17:20:00Z). The API is live.
-
-- ✅ `Postal.Api` is now deployed and running in Azure at http://postal-api.azurewebsites.net/ (2026-10-22T17:20:00Z). Verified via browser after Visual Studio publish.
-
-- ✅ Azure App Service live endpoint confirmed: http://postal-api.azurewebsites.net/ (2026-10-22T17:20:00Z). Visual Studio publish completed successfully.
-
-- ✅ Verified app live in Azure: http://postal-api.azurewebsites.net/ (2026-10-22T17:20:00Z). The API is already live after Visual Studio deployment.
-
-- ✅ Visual Studio publish of `Postal.Api` succeeded and the app is now live at http://postal-api.azurewebsites.net/ (2026-10-22T17:20:00Z). Browser access confirmed the site is responding.
-
-> This is a living tracker. Update it as tasks complete. The design spec lives in `spec.md`.
+- ✅ `Postal.Api` deployed to Azure App Service via Visual Studio publish (2026-10-22T17:20:00Z). Live at http://postal-api.azurewebsites.net/ — verified reachable and serving traffic. Branch: `postal-azure-function-worker`.
 > 
 > **Architecture Reference:** See [infra/README.md](../../PostalExe/migration/infra/README.md) in the migration repo for detailed topology, data flow diagrams, security posture, queue/visibility renewal logic, and ImportJob lifecycle.
 
@@ -441,13 +298,7 @@ Notes:
     - Deployed via Visual Studio publish (2026-10-22T17:20:00Z). API live at `postal-api.azurewebsites.net`, Function live in Azure Functions (.NET 10 isolated worker).
     - Evidence: `az webapp show -g Syntax -n postal-api --query "{id:id, state:state}"` returns state='Running'; `az functionapp show -g Syntax -n postal-worker --query "{id:id, state:state}"` returns state='Running'.
 
-   ---
-
-   ## Deployment Strategy (B1 Limitation)
-
-   **⚠️ Deployment Slots Not Supported:** Azure subscription tier B1 **does not support deployment slots**. Every deploy updates the live production app directly.
-
-   - No staging slot for swap testing or zero-downtime blue-green.
+   ---t for swap testing or zero-downtime blue-green.
    - Each `azd deploy` or `az webapp deploy` updates the live app immediately.
    - Plan deployments off-peak; communicate outages; expect brief downtime.
    - Blue-green deployments (zero-downtime) require a second App Service plan + app (not B1 feasible).
@@ -508,7 +359,7 @@ Notes:
    - **Evidence required:** Copy of identity query output.
 
 **P4: W6 – Validate SQL Permissions on Deployed Resources (Owner: backend dev/ops)**
-   - After P1 + P4, test connection from Function App to Postgres using managed identity token:
+   - After P1 + P2, test connection from Function App to Azure SQL Server using managed identity token:
      1. Deploy a simple test script or curl to Function App: acquire token via `DefaultAzureCredential` for SQL scope (`https://sql.azure.com/`).
      2. Connect to Postal DB as `postalweb` and verify SELECT/INSERT/EXECUTE grants.
      3. Run a dry-run import (small sample) to confirm Function can read blob, parse, bulk insert, and execute stored procs without permission errors.
@@ -740,13 +591,12 @@ Postal Migrator agent responsibilities
 
 > This section supplements the canonical priority list above with detailed task information. Refer to the `Next Actionable Steps (Priority Order)` section as the single source of truth for remaining work ordering and task ownership.
 
-- 🟡 Azure Function + SQL deployment prep
-  - Agent: Postal Migrator - GPT-5 Mini (cfettinger / GitHub Copilot)
-  - Branch: postal-azure-function-worker
-  - Files: infra/bicep/main.bicep, infra/bicep/main.parameters.json, azure.yaml, .github/workflows/deploy-api-function.yml, infra/README.md, src/Postal.Function/Program.cs, src/Postal.Function/host.json, src/Postal.Function/Postal.Function.csproj
-  - Started: 2026-10-20T09:00:00Z
-  - Status: active — Bicep/azd + OIDC CI authored and build-verified (`az bicep build` 0 errors, 2026-10-20); remaining is running `azd provision`/deploy to a resource group and verifying the managed-identity path before production cutover.
-  - Next commands: `azd provision` (or `az deployment group what-if --template-file infra/bicep/main.bicep`), then confirm the MI has `Storage Blob Data Contributor` + `Storage Blob Delegator` (assigned by the Bicep) and SQL permissions via the W3 grant scripts.
+- ✅ Azure Function + SQL deployment — **COMPLETE** (2026-10-22T17:20:00Z)
+  - Deployed via Visual Studio publish. API live at `postal-api.azurewebsites.net`, Function live in Azure Functions (.NET 10 isolated worker).
+  - Managed identity + RBAC configured (Storage Blob Data Contributor, Storage Blob Delegator, Storage Queue Data Contributor).
+  - SQL least-privilege user `postalweb` provisioned with INSERT/UPDATE/SELECT/EXECUTE permissions.
+  - E2E upload validation PASSED via `tests/Postal.LiveValidation.ps1`.
+  - Branch: `postal-azure-function-worker`. Agent: Postal Migrator - GitHub Copilot (cfettinger).
 
 <!-- appended by Postal Migrator -->
 
