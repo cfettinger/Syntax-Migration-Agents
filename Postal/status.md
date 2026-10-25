@@ -13,8 +13,8 @@
 ## Current live validation state
 - ✅ Upload UI reachable at `http://postal-api.azurewebsites.net/Upload`
 - ✅ API app redeployed with queue encoding fix aligned to the Function host
-- 🟡 E2E upload test pending: generate sample `.wrk`, POST `/api/imports`, upload via SAS with `x-ms-blob-type: BlockBlob`, then complete and poll through `Queued` → `Running` → `Succeeded`
-- 🟡 Function execution remains to be confirmed after redeploy using the live validation script
+- ✅ E2E upload validation PASSED (2026-10-23) via `tests/Postal.LiveValidation.ps1` — sample `.wrk` uploaded via SAS, completed, and polled through `Queued` → `Running` → `Succeeded`
+- ✅ Function execution confirmed after redeploy using the live validation script
 
 ---
 
@@ -203,8 +203,8 @@ Use placeholder names and hostnames in status notes; do not store raw connection
 
 ## Notes
 
-- Final Azure E2E upload validation is still pending after the redeploy.
-- The live upload page is available, but the end-to-end import flow must be re-run to confirm `Queued` → `Running` → `Succeeded`.
+- Azure E2E upload validation PASSED (2026-10-23) via `tests/Postal.LiveValidation.ps1`.
+- The live upload page is available and the end-to-end import flow has been confirmed: `Queued` → `Running` → `Succeeded`.
 
 ---
 
@@ -213,7 +213,7 @@ Use placeholder names and hostnames in status notes; do not store raw connection
 - ✅ API live and reachable at `http://postal-api.azurewebsites.net/Upload`
 - ✅ Function worker live in Azure
 - ✅ Queue encoding mismatch corrected in code and deployed
-- 🟡 End-to-end import validation awaiting final live test
+- ✅ End-to-end import validation PASSED (2026-10-23) via `tests/Postal.LiveValidation.ps1`
 
 ---
 
@@ -407,14 +407,13 @@ Use placeholder names and hostnames in status notes; do not store raw connection
 
 ## In Progress / Pending (🟡)
 
-- 🟡 **Azure deployment & ops validation** (resource group `Syntax`, managed identity + Function/App Service + SQL permissions). Status: RBAC storage roles assigned ✅ (2026-10-20T10:45:00Z); managed identity infrastructure validated ✅; Bicep template locally validated ✅; **W4 BICEP OPTIMIZATION COMPLETE** ✅ (2026-10-20T14:30:00Z). Progress:
-  - **W3** (SQL login `postalweb` + least-privilege grants) — Scripts authored and committed to migration repo (`infra/sql/003` + `004`) as of 2026-10-19. *Pending:* ops run on dev DB first, then prod at cutover. Commits visible on branch `postal-azure-function-worker`.
-  - **W5** (Managed identity assignment validation in Azure) — After W4 deployment, confirm Function App and Web App system-assigned identity equals or includes `syntax-main-id`. Use `az functionapp identity show` and `az webapp identity show`. *Pending after W4 deployment (now unblocked).*
+- 🟡 **Website deployment (W5–W7)** — P8: Lift & shift hosting to Azure (App Service + CI). W1–W2 completed on `postal-website-deploy` branch. Remaining: W5 (OIDC CI/CD pipeline), W6 (staging acceptance matrix), W7 (DNS cutover + 8-week warm window). Owner: separate team or later phase.
+- 🟡 **P6: Automated Testing & CI** — Add unit tests (parser, malformed records, resume logic) and integration tests (local Azurite + dev DB end-to-end). Integrate into `.github/workflows/deploy-api-function.yml` CI pipeline. Branch: `postal-test-harness`.
+- 🟡 **P7: Documentation & Runbooks** — Finalize README.md, create ops runbook (deploy steps, troubleshooting, rollback procedure). Branch: `postal-docs`.
 ## Open Design Decisions (from §12)
 
 ## Architecture Notes
-.NET 8 LTS reaches end of support on 11/10/2026. The implementation has been retargeted to .NET 10 (API, Function isolated worker, and tests) to maintain supported runtime/security updates; deploy/runtime verification remains in the deployment validation track.
-**Update is completed**
+.NET 8 LTS reached end of support on 11/10/2026. The implementation has been retargeted to .NET 10 (API, Function isolated worker, and tests) ✅ — deploy/runtime verification confirmed live in Azure.
 
 ## Databases (inventory & auth)
 
@@ -430,38 +429,17 @@ Notes:
 
 > **Single source of truth.** This section reflects the current state and priority for all remaining work items. The "Current In-Progress Work" section below provides detailed context but does not override this ordering.
 
-**Status as of 2026-10-20T14:30:00Z**: Core importer API + Function implementation ✅ complete and locally smoke-tested; Bicep/azd infra templates ✅ optimized and validated (az bicep build exit 0, 1 serverfarms resource, 2 sites); managed identity RBAC ✅ verified on storage account; Azure infrastructure (SQL, Storage, Plan, Identity) ✅ exists and verified online; **W4 BICEP OPTIMIZATION ✅ COMPLETE** — B1 quota blocker RESOLVED.
+**Status as of 2026-10-23T14:25:54Z**: P0 ✅ DEPLOYED (API + Function live); P1 ✅ COMPLETE (SQL user provisioned); P2 ✅ COMPLETE (deployment executed); P3 ✅ COMPLETE (managed identity validated); P4 ✅ COMPLETE (SQL permissions validated via E2E); P5 ✅ COMPLETE (E2E smoke test PASSED via Postal.LiveValidation.ps1). Remaining: P6 (CI tests), P7 (docs/runbooks), P8 (website deployment W5–W7).
 
 **QUOTA BLOCKER: RESOLVED** via W4 Bicep consolidation (single App Service Plan for both Web App + Function App). Quota requirement: 2→1. Cost reduction: 50%.
 
 **Next actionable items (in priority order):**
 
-### **CRITICAL (Ready to execute)**
+### **COMPLETE (Deployed)**
 
-**P0: Deploy Function App + Web App (Owner: DevOps/Platform)**  
-    - Pre-requisite: ✅ COMPLETE (W4 Bicep optimization committed, infra/bicep/main.bicep updated)
-    - Quota blocker eliminated: Single App Service Plan (B1, shared) for both apps
-    - Tooling note: `azd` was installed for deployment via `winget install microsoft.azd`.
-    - Quota note: A B1 quota increase was needed via `az quota update --resource-name B1 --scope "/subscriptions/<SUBSCRIPTION-ID>/providers/Microsoft.Web/locations/<REGION>" --limit-object value=1` — the attempt FAILED because the subscription needs to be upgraded.
-    - Execute deployment:
-      ```bash
-      winget install microsoft.azd   # one-time azd install (already done 2026-10-21)
-      cd D:\Webs\Syntax\PostalExe\migration
-      azd provision
-      azd deploy
-      ```
-     OR manual:
-     ```bash
-     az deployment group create \
-       -g Syntax \
-       --template-file infra/bicep/main.bicep \
-       --parameters infra/bicep/main.parameters.json \
-       --parameters sqlAdminPassword='<from-keyvault>'
-     ```
-   - Acceptance: Azure Portal shows Web App + Function App running in `Syntax` RG on shared B1 plan; system-assigned identities created
-   - Effort: 1 hour
-   - **Evidence required:** `az webapp show -g Syntax -n postal-api --query "{id:id, state:state}"` + `az functionapp show -g Syntax -n postal-worker --query "{id:id, state:state}"`; both should return state='Running'
-       - Unblocks: P1, P2, P3, P4, P5
+**P0: Deploy Function App + Web App (Owner: DevOps/Platform) — COMPLETE ✅**  
+    - Deployed via Visual Studio publish (2026-10-22T17:20:00Z). API live at `postal-api.azurewebsites.net`, Function live in Azure Functions (.NET 10 isolated worker).
+    - Evidence: `az webapp show -g Syntax -n postal-api --query "{id:id, state:state}"` returns state='Running'; `az functionapp show -g Syntax -n postal-worker --query "{id:id, state:state}"` returns state='Running'.
 
    ---
 
