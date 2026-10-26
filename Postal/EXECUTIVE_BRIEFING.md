@@ -220,6 +220,7 @@ All artifacts in: `D:\Projects\Syntax-Migration-Agents\Postal\`
 | **Total Estimated** | - | **~$30-100** | **~$350-1,200** |
 
 **Savings from consolidation:** 50% on compute (1 × B1 vs 2 × B1)
+
 **Current Credit remaining:** $124.11
 ---
 
