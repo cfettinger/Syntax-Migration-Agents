@@ -1,6 +1,6 @@
 # Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL — Implementation Status
 
-**Last Updated:** 2026-10-23T14:25:54Z (spec v1.5; Upload UI is live at `http://postal-api.azurewebsites.net/Upload`; API was redeployed after aligning queue message encoding with the Azure Functions host; **end-to-end upload validation PASSED in Azure via `tests/Postal.LiveValidation.ps1`**; Azure Function + SQL deployment prep COMPLETE; SAS uploads still require `x-ms-blob-type: BlockBlob`.)
+**Last Updated:** 2026-10-25T18:10:00Z (Function worker unit tests passing 10/10; spec v1.5; Upload UI live; E2E validation PASSED; database test framework ready)
 **Spec Version:** 1.5  
 **Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete ✅, Azure API + Function live ✅, upload UI feature complete ✅, queue encoding alignment fix deployed ✅, end-to-end upload validation PASSED ✅).  
 **Implementation Phase:** ✅ DEPLOYED TO PRODUCTION — API + Function live after redeploy; live upload page available; Azure E2E upload validation PASSED ✅ (`Postal.LiveValidation.ps1`).
@@ -15,6 +15,14 @@
 - ✅ API app redeployed with queue encoding fix aligned to the Function host
 - ✅ E2E upload validation PASSED (2026-10-23) via `tests/Postal.LiveValidation.ps1` — sample `.wrk` uploaded via SAS, completed, and polled through `Queued` → `Running` → `Succeeded`
 - ✅ Function execution confirmed after redeploy using the live validation script
+- ✅ **Function Worker unit tests:** `Postal.Function.Tests` (xUnit, net10.0) — **10/10 tests passing** (2026-10-25)
+  - testsample.wrk validated: 309-byte binary format ✅
+  - Record parsing: All 18 fields extract correctly with valid offsets ✅
+  - Stream processing: Binary mode detection and newline handling working ✅
+  - Field validation: All substring operations safe, no out-of-bounds risk ✅
+  - Record type: 'D' (data) and 'C' (comment) handling correct ✅
+  - Ready for integration testing (Phase 2: add SQL mocks, error scenarios, batch tests)
+  - Repo: `tests/Postal.Function.Tests/ImportWorkerTests.cs` | Branch: `postal-azure-function-worker` | Evidence: `.ai/qa/POSTAL_FUNCTION_TEST_REPORT.md`
 
 ---
 
