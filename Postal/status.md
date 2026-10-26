@@ -528,6 +528,40 @@ Source: `D:\Webs\Syntax\PostalExe\trunk\website\web` (SVN working copy `trunk/we
 - Commit message template: `feat(infra): bicep for postal-web windows app service (32bit classic entra auth)`
 - Status.md update: `✅ W4 postal-web App Service deployed to staging via bicep; 32-bit/Classic/Entra verified; infra/bicep/postal-web.bicep`
 
+### W4 — Create Bicep for postal-web (Windows App Service)
+- Title: Bicep infrastructure + SQL login for Classic ASP website deployment
+- Owner: cfettinger / Postal Migrator
+- Branch: postal-azure-function-worker
+- Files to create:
+  - `infra/bicep/postal-web.bicep` (Windows .NET 4.8, 32-bit, Classic pipeline, system-assigned MI, App Insights)
+  - `infra/sql/postalweb-login.sql` (least-privilege db user: SELECT on Delstat/ImportJob, EXECUTE on Postalweb/Postalwebboth)
+  - `website/DEPLOYMENT_MANIFEST.md` (artifact documentation: file list, sizes, exclusions)
+- Infra changes: Bicep module in `infra/bicep/`, integrated into `main.bicep`; SQL script in `infra/sql/`
+- Steps:
+  1. Create `postal-web.bicep` module: Windows 32-bit Classic pipeline, share existing B1 plan, link App Insights
+  2. Integrate into `main.bicep`: add module declaration, pass appServicePlanId and appInsightsKey
+  3. Validate: `az bicep build infra/bicep/main.bicep` → exit 0
+  4. Create `postalweb-login.sql`: CREATE LOGIN, CREATE USER, GRANT SELECT/EXECUTE
+  5. Store password in Key Vault: `az keyvault secret set --vault-name kvsyntax --name postal-web-sql-password`
+  6. Validate `website/connvars.template.asp` has placeholders: `<AZURE_SQL_HOSTNAME>`, `<POSTAL_WEB_SQL_PASSWORD>`
+  7. Create `website/DEPLOYMENT_MANIFEST.md`: document deploy-list.txt, exclusions, size estimate
+  8. Local smoke test: `az bicep build`, `what-if` (no actual deployment), verify artifact would have approved files only
+- Environment: (none; no secrets in Bicep) — Key Vault reference for password
+- RBAC / Permissions: deployer needs App Service plan + site creation; manual SQL script execution against Postal database
+- Acceptance criteria:
+  - Bicep compiles: `az bicep build infra/bicep/main.bicep` → exit 0
+  - What-if shows postal-web creation (no deployment yet)
+  - SQL user `postalweb` exists with SELECT + EXECUTE permissions only
+  - Password stored in Key Vault (not in repo)
+  - `connvars.template.asp` has all required placeholders
+  - `deploy-list.txt` excludes junk files; `connvars.asp` in `.gitignore`
+  - No secrets in any source files
+- Tests: Bicep compilation + what-if (local, no deployment); manual SQL user verification
+- Test data: none
+- Estimated effort: 4.5h
+- Commit message template: `feat(infra): bicep for postal-web (windows 32-bit classic asp) + sql login`
+- Status.md update on completion: `✅ W4 postal-web infrastructure complete: Bicep module + SQL login + deployment manifest; infra/bicep/postal-web.bicep, infra/sql/postalweb-login.sql, branch postal-azure-function-worker; ready for W5 CI/CD`
+
 ### W5 — CI/CD pipeline (GitHub Actions, OIDC, zip deploy)
 - Title: Pipeline: build website zip (with connvars injection) → deploy to App Service
 - Owner: infra / backend dev
