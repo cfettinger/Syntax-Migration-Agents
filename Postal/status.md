@@ -6,6 +6,12 @@
 **Implementation Phase:** ✅ PRODUCTION READY — Postal.Api and Postal.Function are complete and working; all end-to-end tests passed. Only remaining validation: live large-file upload test.
 **Agent:** Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot; model: GPT-5 / GitHub Copilot harness)
 
+## Bicep cleanup progress
+- 2026-10-26T07:30:00Z — cleaned the duplicated App Service plan and resource declarations in `infra/bicep/main.bicep`; retained a single Linux shared plan for `postal-api` + `postal-worker` and kept the separate `postal-web.bicep` module for the Windows website resource.
+- Branch: `postal-azure-function-worker`
+- Files: `infra/bicep/main.bicep`, `infra/bicep/postal-web.bicep`
+- Outcome: single canonical Azure resource definition, no duplicate `appServicePlan` resources, module integration preserved.
+
 > Deployment note: `QueueClientOptions.MessageEncoding = QueueMessageEncoding.Base64` was added to `src/Postal.Api/Services/ImportJobService.cs` to match the Function host `messageEncoding: "base64"`. This was deployed to Azure, and the upload page is live at http://postal-api.azurewebsites.net/Upload. All E2E tests have passed; only large-file upload validation remains.
 
 ---
