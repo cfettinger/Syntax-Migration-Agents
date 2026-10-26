@@ -19,7 +19,7 @@ This follows the hosting findings in `syntax-webapp.txt`: **Classic ASP + VBScri
 
 ## Non-goals
 
-- **No rewrite to .NET 8 / C# / MVC.** `spec.md` rewrites only the desktop importer. Converting the site's ~30 ASP pages to Razor is a later, optional project; this spec deliberately keeps them in VBScript. (Record the decision and the reason — minimal-diff cutover of a working, rarely-changing site — in `CONVERSION.md`.) If any piece *were* rewritten in .NET, its uploads must stream `IFormFile` → `BlobClient.UploadAsync` — never `CopyToAsync` to a local path (see `syntax-webapp.txt` rewrite-upload Q&A and §6.5).
+- **No rewrite to .NET 10 / C# / MVC.** `spec.md` rewrites only the desktop importer. Converting the site's ~30 ASP pages to Razor is a later, optional project; this spec deliberately keeps them in VBScript. (Record the decision and the reason — minimal-diff cutover of a working, rarely-changing site — in `CONVERSION.md`.) If any piece *were* rewritten in .NET, its uploads must stream `IFormFile` → `BlobClient.UploadAsync` — never `CopyToAsync` to a local path (see `syntax-webapp.txt` rewrite-upload Q&A and §6.5).
 - No changes to printed/facing-slip layouts, page-break behavior, or report wording.
 - No redesign of the image-button nav (Dreamweaver `MM_swapImage` gifs stay).
 - Do not modify the black-box stored procedures `Postalweb` / `Postalwebboth` (owned by `spec.md`'s database migration).
