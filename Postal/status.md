@@ -8,9 +8,10 @@
 
 ## Bicep cleanup progress
 - 2026-10-26T07:30:00Z — cleaned the duplicated App Service plan and resource declarations in `infra/bicep/main.bicep`; retained a single Linux shared plan for `postal-api` + `postal-worker` and kept the separate `postal-web.bicep` module for the Windows website resource.
+- 2026-10-26T07:45:00Z — website infrastructure deployed via Bicep: classic ASP host `postal-web` / `postal-web-plan` is now provisioned and live in westus3; app + function remain on the shared Linux plan and are operating normally.
 - Branch: `postal-azure-function-worker`
 - Files: `infra/bicep/main.bicep`, `infra/bicep/postal-web.bicep`
-- Outcome: single canonical Azure resource definition, no duplicate `appServicePlan` resources, module integration preserved.
+- Outcome: single canonical Azure resource definition, no duplicate `appServicePlan` resources, module integration preserved, and classic ASP website infra now deployed.
 
 > Deployment note: `QueueClientOptions.MessageEncoding = QueueMessageEncoding.Base64` was added to `src/Postal.Api/Services/ImportJobService.cs` to match the Function host `messageEncoding: "base64"`. This was deployed to Azure, and the upload page is live at http://postal-api.azurewebsites.net/Upload. All E2E tests have passed; only large-file upload validation remains.
 
