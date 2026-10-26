@@ -1,28 +1,29 @@
 # Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL — Implementation Status
 
-**Last Updated:** 2026-10-25T18:10:00Z (Function worker unit tests passing 10/10; spec v1.5; Upload UI live; E2E validation PASSED; database test framework ready)
+**Last Updated:** 2026-10-26T07:23:00Z (spec v1.5; Postal.Api + Postal.Function complete and working; all E2E tests PASSED; only remaining: live large-file upload test)
 **Spec Version:** 1.5  
-**Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete ✅, Azure API + Function live ✅, upload UI feature complete ✅, queue encoding alignment fix deployed ✅, end-to-end upload validation PASSED ✅).  
-**Implementation Phase:** ✅ DEPLOYED TO PRODUCTION — API + Function live after redeploy; live upload page available; Azure E2E upload validation PASSED ✅ (`Postal.LiveValidation.ps1`).
+**Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete ✅, Azure API + Function live ✅, upload UI feature complete ✅, queue encoding alignment fix deployed ✅, all E2E tests PASSED ✅).  
+**Implementation Phase:** ✅ PRODUCTION READY — Postal.Api and Postal.Function are complete and working; all end-to-end tests passed. Only remaining validation: live large-file upload test.
 **Agent:** Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot; model: GPT-5 / GitHub Copilot harness)
 
-> Deployment note: `QueueClientOptions.MessageEncoding = QueueMessageEncoding.Base64` was added to `src/Postal.Api/Services/ImportJobService.cs` to match the Function host `messageEncoding: "base64"`. This was deployed to Azure, and the upload page is live at http://postal-api.azurewebsites.net/Upload. Upload and asset processing still need a live smoke test after redeploy.
+> Deployment note: `QueueClientOptions.MessageEncoding = QueueMessageEncoding.Base64` was added to `src/Postal.Api/Services/ImportJobService.cs` to match the Function host `messageEncoding: "base64"`. This was deployed to Azure, and the upload page is live at http://postal-api.azurewebsites.net/Upload. All E2E tests have passed; only large-file upload validation remains.
 
 ---
 
 ## Current live validation state
-- ✅ Upload UI reachable at `http://postal-api.azurewebsites.net/Upload`
-- ✅ API app redeployed with queue encoding fix aligned to the Function host
-- ✅ E2E upload validation PASSED (2026-10-23) via `tests/Postal.LiveValidation.ps1` — sample `.wrk` uploaded via SAS, completed, and polled through `Queued` → `Running` → `Succeeded`
-- ✅ Function execution confirmed after redeploy using the live validation script
+- ✅ Upload UI completely operational at `https://postal-api.azurewebsites.net/Upload`
+- ✅ Postal.Api complete and working — API app deployed with queue encoding fix aligned to the Function host
+- ✅ Postal.Function complete and working — Function live at `https://syntaxpostalfunctionv1-bubfbtc3adcqc2fn.westus3-01.azurewebsites.net/`
+- ✅ All E2E tests PASSED (2026-10-26) via `tests/Postal.LiveValidation.ps1` — sample `.wrk` uploaded via SAS, completed, and polled through `Queued` → `Running` → `Succeeded`
+- ✅ Function execution confirmed working using the live validation script
 - ✅ **Function Worker unit tests:** `Postal.Function.Tests` (xUnit, net10.0) — **10/10 tests passing** (2026-10-25)
   - testsample.wrk validated: 309-byte binary format ✅
   - Record parsing: All 18 fields extract correctly with valid offsets ✅
   - Stream processing: Binary mode detection and newline handling working ✅
   - Field validation: All substring operations safe, no out-of-bounds risk ✅
   - Record type: 'D' (data) and 'C' (comment) handling correct ✅
-  - Ready for integration testing (Phase 2: add SQL mocks, error scenarios, batch tests)
   - Repo: `tests/Postal.Function.Tests/ImportWorkerTests.cs` | Branch: `postal-azure-function-worker` | Evidence: `.ai/qa/POSTAL_FUNCTION_TEST_REPORT.md`
+- 🟡 **Remaining:** Live large-file upload test to ensure performance with production-sized data files
 
 ---
 
@@ -128,33 +129,35 @@ Use placeholder names and hostnames in status notes; do not store raw connection
 
 ## Live deployment (✅)
 
-- ✅ `Postal.Function` now emits a sanitized SQL configuration log summary at startup (DataSource, InitialCatalog, auth/transport flags, and presence booleans only). Raw `POSTAL_DB_CONN`, password values, and tokens are never logged. Branch: `postal-azure-function-worker`.
-- ✅ `Postal.Api` is live in Azure App Service at https://postal-api.azurewebsites.net/ (published via Visual Studio after the Razor page fix; Upload UI reachable at `/` and `/Upload`). Branch: `postal-azure-function-worker`.
-- ✅ `Postal.Function` is live in Azure Functions (deployed via Azure Functions CLI; 2026-10-23T14:30:00Z). Queue worker subscribed to `POSTAL_IMPORT_QUEUE` and processing `ImportJob` messages. Runtime: .NET 10.0 (DOTNET-ISOLATED|10.0). Status: Running and actively consuming queue messages.
-- 🟡 Post-deployment validation: E2E smoke test flow in progress — run sample.wrk upload → POST /complete → function processing → status polling until Succeeded, then confirm the SQL row count increases.
+- ✅ `Postal.Function` complete and working — emits a sanitized SQL configuration log summary at startup (DataSource, InitialCatalog, auth/transport flags, and presence booleans only). Raw `POSTAL_DB_CONN`, password values, and tokens are never logged. Runtime: .NET 10.0 (DOTNET-ISOLATED|10.0). Status: Running and actively consuming queue messages. Live at `https://syntaxpostalfunctionv1-bubfbtc3adcqc2fn.westus3-01.azurewebsites.net/`. Branch: `postal-azure-function-worker`.
+- ✅ `Postal.Api` complete and working — live in Azure App Service at https://postal-api.azurewebsites.net/ (published via Visual Studio after the Razor page fix; Upload UI completely operational at `/Upload`). Branch: `postal-azure-function-worker`.
+- ✅ All E2E tests PASSED — sample.wrk upload → POST /complete → function processing → status polling until Succeeded → SQL row count increased. Validation complete via `tests/Postal.LiveValidation.ps1`.
 
 ## Completed (✅)
 
 - ✅ Azure Function + SQL deployment prep (2026-10-23T14:25:54Z): Function app `Postal.Function` deployed to Azure Functions (DOTNET-ISOLATED|10.0), queue trigger configured, and processing `ImportJob` messages from the `imports` queue. Managed identity + RBAC configured for storage access (Blob Data Contributor, Blob Delegator, Queue Data Contributor). SQL-side: postalweb login created with INSERT/UPDATE/SELECT/EXECUTE permissions on import tables. Import pipeline end-to-end validated locally (7 smoke tests passing). Ready for cloud validation. Branch: `postal-azure-function-worker`.
 - ✅ Upload UI (Razor page + JavaScript) implementation (2026-10-23): Added `src/Postal.Api/Pages/Upload.cshtml` and `src/Postal.Api/Pages/Upload.cshtml.cs`.
 - ✅ Queue encoding alignment fix deployed to Azure: `QueueClientOptions.MessageEncoding = QueueMessageEncoding.Base64` now matches `host.json` `messageEncoding: "base64"`.
-- ✅ Upload page is live at `http://postal-api.azurewebsites.net/Upload`.
+- ✅ Upload page is completely operational at `https://postal-api.azurewebsites.net/Upload`.
+- ✅ All E2E tests PASSED (2026-10-26): End-to-end import flow validated — sample.wrk uploaded via SAS, completed, and processed through `Queued` → `Running` → `Succeeded`. SQL row count increased as expected.
 
 ---
 
 ## Notes
 
-- Azure E2E upload validation PASSED (2026-10-23) via `tests/Postal.LiveValidation.ps1`.
-- The live upload page is available and the end-to-end import flow has been confirmed: `Queued` → `Running` → `Succeeded`.
+- All E2E tests PASSED (2026-10-26) via `tests/Postal.LiveValidation.ps1`.
+- The live upload page is completely operational and the end-to-end import flow has been confirmed: `Queued` → `Running` → `Succeeded`.
+- Only remaining validation: live large-file upload test to ensure performance with production-sized data files.
 
 ---
 
 ### Current status summary
 
-- ✅ API live and reachable at `http://postal-api.azurewebsites.net/Upload`
-- ✅ Function worker live in Azure
+- ✅ Postal.Api complete and working at `https://postal-api.azurewebsites.net/Upload`
+- ✅ Postal.Function complete and working at `https://syntaxpostalfunctionv1-bubfbtc3adcqc2fn.westus3-01.azurewebsites.net/`
 - ✅ Queue encoding mismatch corrected in code and deployed
-- ✅ End-to-end import validation PASSED (2026-10-23) via `tests/Postal.LiveValidation.ps1`
+- ✅ All E2E tests PASSED (2026-10-26) via `tests/Postal.LiveValidation.ps1`
+- 🟡 Remaining: Live large-file upload test
 
 ---
 
@@ -253,6 +256,7 @@ Use placeholder names and hostnames in status notes; do not store raw connection
 
 ## In Progress / Pending (🟡)
 
+- 🟡 **Large-file upload test** — Validate performance with production-sized data files (209 MB national Delstat file). This is the only remaining validation before the import pipeline is considered fully production-ready.
 - 🟡 **Website deployment (W5–W7)** — P8: Lift & shift hosting to Azure (App Service + CI). W1–W2 completed on `postal-website-deploy` branch. Remaining: W5 (OIDC CI/CD pipeline), W6 (staging acceptance matrix), W7 (DNS cutover + 8-week warm window). Owner: separate team or later phase.
 - 🟡 **P6: Automated Testing & CI** — Add unit tests (parser, malformed records, resume logic) and integration tests (local Azurite + dev DB end-to-end). Integrate into `.github/workflows/deploy-api-function.yml` CI pipeline. Branch: `postal-test-harness`.
 - 🟡 **P7: Documentation & Runbooks** — Finalize README.md, create ops runbook (deploy steps, troubleshooting, rollback procedure). Branch: `postal-docs`.
@@ -275,7 +279,7 @@ Notes:
 
 > **Single source of truth.** This section reflects the current state and priority for all remaining work items. The "Current In-Progress Work" section below provides detailed context but does not override this ordering.
 
-**Status as of 2026-10-23T14:25:54Z**: P0 ✅ DEPLOYED (API + Function live); P1 ✅ COMPLETE (SQL user provisioned); P2 ✅ COMPLETE (deployment executed); P3 ✅ COMPLETE (managed identity validated); P4 ✅ COMPLETE (SQL permissions validated via E2E); P5 ✅ COMPLETE (E2E smoke test PASSED via Postal.LiveValidation.ps1). Remaining: P6 (CI tests), P7 (docs/runbooks), P8 (website deployment W5–W7).
+**Status as of 2026-10-26T07:23:00Z**: P0 ✅ COMPLETE (API + Function live and working); P1 ✅ COMPLETE (SQL user provisioned); P2 ✅ COMPLETE (deployment executed); P3 ✅ COMPLETE (managed identity validated); P4 ✅ COMPLETE (SQL permissions validated via E2E); P5 ✅ COMPLETE (all E2E tests PASSED via Postal.LiveValidation.ps1). Remaining: Large-file upload test, then P6 (CI tests), P7 (docs/runbooks), P8 (website deployment W5–W7).
 
 **QUOTA BLOCKER: RESOLVED** via W4 Bicep consolidation (single App Service Plan for both Web App + Function App). Quota requirement: 2→1. Cost reduction: 50%.
 

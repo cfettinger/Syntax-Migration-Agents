@@ -17,7 +17,7 @@ A collection of agent specs and specifications for migrating legacy postal-deliv
   - A queue-based worker streams the blob, parses the 309-byte records with the legacy field rules, and bulk-inserts into Azure SQL with checkpointed resume.
   - Job status (`Queued` / `Running` / `Succeeded` / `Failed`) and `RowsWritten` are surfaced via a small REST API.
 - The spec covers SAS refresh for slow uploads, single-consumer leases, transient-fault retries, resume semantics, least-privilege managed-identity RBAC, and deployment via azd/Bicep.
-- **Status (2026-10-22):** `Postal.Api` and `Postal.Function` are both **live in Azure** (API at `http://postal-api.azurewebsites.net/`, Function as `SyntaxPostalFunctionV1`); the .NET 10 upgrade is complete and the W4 Bicep quota blocker is resolved. End-to-end import validation against the live worker is the remaining open item. Tracked in [`Postal/status.md`](Postal/status.md), which is updated as tasks complete.
+- **Status (2026-10-26):** `Postal.Api` and `Postal.Function` are both **complete and working** in Azure (API at `https://postal-api.azurewebsites.net/Upload`, Function at `https://syntaxpostalfunctionv1-bubfbtc3adcqc2fn.westus3-01.azurewebsites.net/`); all E2E tests PASSED. Only remaining validation: live large-file upload test with production-sized data. Tracked in [`Postal/status.md`](Postal/status.md), which is updated as tasks complete.
 
 ## Postal migration — projects & status
 
@@ -29,7 +29,7 @@ separate working repo (`D:\Webs\Syntax\PostalExe\migration`, branch
 |---|---------|-----------|--------|
 | 1 | **Legacy PostalExe** (desktop importer) | VB.NET 2008 WinForms app (`Form1.vb`) that reads fixed-width Delstat `.wrk` files and loads `Delstat` via `System.Data.SqlClient`, then runs `Postalweb`/`Postalwebboth`. | Being replaced — behavior fully reproduced in the Function worker. |
 | 2 | **Legacy Postal Website** (ASP classic) | IIS-hosted `.asp` site that displays/edits postal data. Lift & shift to Azure App Service (`postal-web`) with minimal code changes (deploy-time `connvars.asp`, `machineKey` removal, one nav fix). | W1 (page edits) + W2 (deploy-time connvars generator) done; W3 (SQL login `postalweb`) scripts authored. |
-| 3 | **Postal.Api + Postal.Function** (.NET 10) | The new import pipeline: minimal API (import jobs + user-delegation SAS minting) + isolated queue-trigger worker (fixed-width/CRLF parse, chunked `SqlBulkCopy`, `RowsWritten` resume, SP calls). | API + Function complete and smoke-tested end-to-end (7E1). |
+| 3 | **Postal.Api + Postal.Function** (.NET 10) | The new import pipeline: minimal API (import jobs + user-delegation SAS minting) + isolated queue-trigger worker (fixed-width/CRLF parse, chunked `SqlBulkCopy`, `RowsWritten` resume, SP calls). | ✅ Complete and working — all E2E tests PASSED. Only remaining: live large-file upload test. |
 | 4 | **Tracking workspace** (this repo) | Multi-agent coordination: `Postal/spec.md` (importer design), `Postal/websitespec.md` (website lift & shift), `Postal/status.md` (live tracker). | Active — updated as tasks complete. |
 
 ### Running the new pipeline locally
