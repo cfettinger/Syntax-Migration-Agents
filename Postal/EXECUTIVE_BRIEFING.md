@@ -212,15 +212,15 @@ All artifacts in: `D:\Projects\Syntax-Migration-Agents\Postal\`
 
 | Component | B1 Tier | Monthly Cost | Annual Cost |
 |-----------|---------|--------------|-------------|
-| **Single App Service Plan** | 1 × B1 | ~$50-60 | ~$600-720 |
-| **Storage (Blob + Queue)** | Pay-as-you-go | ~$5-10 | ~$60-120 |
+| **Single App Service Plan** | 1 × B1 | ~$13 | ~$156 |
+| **Storage (Blob + Queue)** | Pay-as-you-go | ~$1-5 | ~$12-60 |
 | **SQL Database** | Standard S0 | ~$15-25 | ~$180-300 |
-| **App Insights** | Pay-as-you-go | ~$5-10 | ~$60-120 |
+| **App Insights** | Pay-as-you-go | ~$0-5 | ~$0-60 |
 | **Managed Identity** | Free | $0 | $0 |
-| **Total Estimated** | - | **~$75-105** | **~$900-1,260** |
+| **Total Estimated** | - | **~$30-100** | **~$350-1,200** |
 
 **Savings from consolidation:** 50% on compute (1 × B1 vs 2 × B1)
-
+**Current Credit remaining:** $124.11
 ---
 
 ## Stakeholder Summary
