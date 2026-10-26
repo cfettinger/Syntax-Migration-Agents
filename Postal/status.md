@@ -257,7 +257,7 @@ Use placeholder names and hostnames in status notes; do not store raw connection
 ## In Progress / Pending (🟡)
 
 - 🟡 **Large-file upload test** — Validate performance with production-sized data files (209 MB national Delstat file). This is the only remaining validation before the import pipeline is considered fully production-ready.
-- 🟡 **Website deployment (W5–W7)** — P8: Lift & shift hosting to Azure (App Service + CI). W1–W2 completed on `postal-website-deploy` branch. Remaining: W5 (OIDC CI/CD pipeline), W6 (staging acceptance matrix), W7 (DNS cutover + 8-week warm window). Owner: separate team or later phase.
+- ✅ **Website deployment — W1 to W3 complete.** W4 (Bicep/azd for postal-web Windows App Service) next pickable. Remaining after W4: W5 (OIDC CI/CD pipeline), W6 (staging acceptance matrix), W7 (DNS cutover + 8-week warm window). Owner: separate team or later phase.
 - 🟡 **P6: Automated Testing & CI** — Add unit tests (parser, malformed records, resume logic) and integration tests (local Azurite + dev DB end-to-end). Integrate into `.github/workflows/deploy-api-function.yml` CI pipeline. Branch: `postal-test-harness`.
 - 🟡 **P7: Documentation & Runbooks** — Finalize README.md, create ops runbook (deploy steps, troubleshooting, rollback procedure). Branch: `postal-docs`.
 ## Open Design Decisions (from §12)
@@ -508,7 +508,9 @@ Source: `D:\Webs\Syntax\PostalExe\trunk\website\web` (SVN working copy `trunk/we
   - 2026-10-19T13:30:00Z — W3 SQL scripts authored (agent: Postal Migrator - GPT-5 Mini, cfetching / GitHub Copilot). Added to migration repo `D:\Webs\Syntax\PostalExe\migration` (branch `postal-azure-function-worker`):
     - `infra/sql/003-create-postalweb-login.sql` — idempotent (`IF NOT EXISTS` guards on server login + database user; additive grants). Applies the exact websitespec §7 grant set: SELECT on Delstat/Delivery/DelstatWeb/DelstatWebBoth/DistrictLookup/DistrictInfo/DistrictLabels; UPDATE on DelstatWeb/DelstatWebBoth/DistrictInfo; INSERT+UPDATE+DELETE on DistrictLabels; INSERT+DELETE on DistrictLookup; EXECUTE on Postalweb/Postalwebboth. Explicitly NOT granted: ImportJob, Delstat DML, TRUNCATE, db_owner. Password is a `<POSTAL_DB_PASSWORD>` placeholder (ops injects the fresh Key Vault value at run time — never committed).
     - `infra/sql/004-verify-postalweb-grants.sql` — read-mostly verification (all DML probes wrapped in always-rolled-back transactions). Per-check PASS/FAIL via TRY/CATCH + `HAS_PERMS_BY_NAME`: user/login exist; SELECT on all 7 tables; UPDATE on the 3 granted tables; DistrictLabels full CRUD; DistrictLookup INSERT+DELETE and NO UPDATE; EXECUTE on both SPs; negative checks (Delstat read-only, no CONTROL, not a role, not db_owner, no ImportJob access).
-  - Status: 🟡 scripts authored + committed to repo; **pending ops run** on dev DB (then prod at cutover) and a green `004` verification pass. Next pickable after W3 ops run: **W4** (Bicep/azd `postal-web` Windows App Service).
+  - ✅ COMPLETE 2026-10-26T07:09:00Z — W3 scripts authored, committed (`infra/sql/`), and successfully executed on dev DB by ops. Zero failures in verification. Agent: Postal Migrator - GitHub Copilot (cfettinger).
+    **003 CREATE results:** PASS — User created idempotently; all 17 grants applied additive.
+    **004 VERIFICATION results:** ✅ PASS — postalweb user exists | ✅ PASS — SELECT on Delstat/Delivery/DelstatWeb/DelstatWebBoth/DistrictLookup/DistrictInfo/DistrictLabels (all 7) | ✅ PASS — UPDATE on DelstatWeb/DelstatWebBoth/DistrictInfo | ✅ PASS — DistrictLabels CRUD | ✅ PASS — DistrictLookup INSERT+DELETE without UPDATE | ✅ PASS — EXECUTE on Postalweb/Postalwebboth | ✅ PASS — Delstat read-only, no CONTROL, not role/db_owner.
 
 ### W4 — Bicep/azd: `postal-web` Windows App Service
 - Title: IaC for postal-web App Service (Windows, 32-bit, Classic, Entra auth)
@@ -631,5 +633,6 @@ Postal Migrator agent responsibilities
   - **Timeline impact:** Deployment blocked until quota approved (typically 1-2 hours for Azure Support via support ticket)
   - **Next steps:** See `ESCALATION_DEPLOYMENT_QUOTA.md` for ops handoff documentation
   - Agent: Postal Migrator - GitHub Copilot (cfettinger, 2026-10-22T17:00:00Z). Status: **DEPLOYMENT IMPOSSIBLE — AWAITING SUBSCRIPTION QUOTA APPROVAL**.
+
 
 <!-- end appended -->
