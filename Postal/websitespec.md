@@ -2,7 +2,7 @@
 
 Version 1.1, 2026-10-13 (v1.1: added §6.5 file-upload-to-blob path mirroring the `syntax-webapp.txt` upload Q&A; adjusted non-goals and resource delta)
 
-Companion to `spec.md` (desktop importer → .NET 8). This spec covers the operator-facing website at `trunk/website/web` (**Classic ASP / VBScript / ADODB** on IIS, circa 2010–2014).
+Companion to `spec.md` (desktop importer → .NET 10). This spec covers the operator-facing website at `trunk/website/web` (**Classic ASP / VBScript / ADODB** on IIS, circa 2010–2014).
 
 > **Source note:** the upstream SVN repo is `website/postal.svn`; only the working copy `trunk/website` is available locally (`Postal.sln`, `.vs/`, `web/`). Export the working copy fresh at implementation time so no local edits are lost. The repo itself moves to the new source-control layout in §12 (or stays SVN with a scripted export step — decide and record in `CONVERSION.md`).
 

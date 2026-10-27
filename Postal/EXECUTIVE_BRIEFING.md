@@ -1,6 +1,7 @@
 # POSTAL MIGRATION - EXECUTIVE BRIEFING
 **Date:** 2026-10-26  
-**Status:** ✅ FULLY LIVE IN PRODUCTION — `Postal.Api`, `Postal.Function`, and the classic ASP website `postal-web` all running; production data imported; long-time 404 on all Postal pages fixed  
+**Last Updated:** 2026-10-27T14:40:00Z  
+**Status:** ✅ FULLY LIVE IN PRODUCTION — `Postal.Api`, `Postal.Function`, and the classic ASP website `postal-web` all running; production data imported; long-time 404 on all Postal pages fixed. **Remaining work: only custom domain names and a cloud (GitHub) repository.**  
 **Impact:** Complete migration delivered: legacy desktop importer replaced, legacy website lift & shifted, end-to-end import pipeline operational
 
 ---
@@ -19,6 +20,8 @@ The Postal Importer migration from legacy VB.NET WinForms to modern .NET 10 Azur
 - ✅ All E2E tests PASSED: COMPLETE (2026-10-26) via `tests/Postal.LiveValidation.ps1`
 - ✅ Website production: `postal-web` fully live with production data imported; long-time 404 generating error fixed on all Postal pages (2026-10-26)
 - ✅ Website re-deploy standard: `pwsh infra/web/deploy-website-local.ps1` (replaces ad-hoc zip/deploy steps)
+- ✅ All production validation complete: 2026-10-26 production data imported end-to-end (including production-sized data)
+- 🟡 Remaining (2026-10-27): custom domain names (only item left besides cloud repo)
 
 ---
 
@@ -167,7 +170,7 @@ Resource Container:
 | **E2E Tests** | ✅ COMPLETE | QA | Automated | 2026-10-26 |
 
 **Critical Path:** All items complete ✅  
-**Remaining:** Live large-file upload test (production-sized data validation)
+**Remaining (2026-10-27):** Only two items — (1) custom domain names (CNAME + TLS for `postal-web` / `postal-api`) and (2) publishing the migration repo to a cloud (GitHub) repository
 
 ---
 
@@ -231,7 +234,8 @@ All artifacts in: `D:\Projects\Syntax-Migration-Agents\Postal\`
 - ✅ Migration complete and deployed to production
 - ✅ All E2E tests PASSED (2026-10-26)
 - ✅ System operational: Postal.Api + Postal.Function live in Azure
-- ✅ Only remaining: live large-file upload test with production-sized data
+- ✅ Production data imported end-to-end (including production-sized data)
+- 🟡 Only remaining: custom domain names + cloud (GitHub) repository
 
 ### DevOps / Platform
 - ✅ Bicep templates validated, optimized, and deployed
@@ -253,22 +257,20 @@ All artifacts in: `D:\Projects\Syntax-Migration-Agents\Postal\`
 - ✅ Local end-to-end smoke test completed (2026-10-17)
 - ✅ Cloud validation complete (2026-10-26)
 - ✅ All E2E tests PASSED: Queued → Running → Succeeded flow verified
-- 🟡 Live large-file upload test pending (production-sized data ~209 MB)
+- ✅ Production data imported end-to-end (2026-10-26), including production-sized data
 
 ---
 
 ## Next Actions (Priority Order)
 
-**IMMEDIATE (Today)**
-1. 🟡 **Live large-file upload test** — Validate performance with production-sized data (~209 MB national Delstat file)
-   - This is the only remaining validation before import pipeline is considered fully production-ready
-   - Test: Upload large `.wrk` file via https://postal-api.azurewebsites.net/Upload
-   - Verify: Function processes file successfully, SQL row count increases appropriately
+**REMAINING (2026-10-27 — only two items)**
+1. 🟡 **Custom domain names** — Map CNAMEs + TLS certificates (App Service custom domains) for the `postal-web` site and the `postal-api` upload portal; endpoints currently serve on `*.azurewebsites.net`
+2. 🟡 **Cloud repository** — Publish the migration repo (`D:\Webs\Syntax\PostalExe\migration`) to a cloud GitHub repository (currently local-only)
 
-**ONGOING (Post-deployment)**
-2. P6: Automated Testing & CI — Add unit tests for parser, malformed records, resume logic
-3. P7: Documentation & Runbooks — Finalize README.md, create ops runbook
-4. P8: Website deployment (W5–W7) — Lift & shift hosting to Azure (separate project)
+**OPTIONAL (future, not required for production operation)**
+3. P6: Automated Testing & CI — Additional unit tests for parser, malformed records, resume logic
+4. P7: Documentation & Runbooks — Ops runbook polish
+5. P8: Website W5–W6 — OIDC CI/CD pipeline + staging matrix (W7 DNS cutover is covered by item 1 above)
 
 ---
 
@@ -290,11 +292,11 @@ The Postal Importer migration is **complete, deployed to production, and fully v
 - **File Upload UI:** https://postal-api.azurewebsites.net/Upload (completely operational)
 - **Function Worker:** https://syntaxpostalfunctionv1-bubfbtc3adcqc2fn.westus3-01.azurewebsites.net/ (working)
 
-**Only Remaining Validation:** Live large-file upload test with production-sized data (~209 MB national Delstat file) to ensure performance at scale.
+**Remaining Work (2026-10-27):** Only two items remain - custom domain names (CNAME + TLS for postal-web / postal-api) and publishing the repo to a cloud (GitHub) repository. (Prior items, including the large-file upload validation, completed.)
 
 ---
 
 **Generated:** 2026-10-20T11:45:00Z  
-**Last Updated:** 2026-10-26T07:23:00Z  
+**Last Updated:** 2026-10-27T14:40:00Z  
 **Agent:** Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot)  
 **Classification:** Executive Summary + Production Status
