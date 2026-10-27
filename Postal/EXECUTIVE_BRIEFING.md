@@ -1,7 +1,7 @@
 # POSTAL MIGRATION - EXECUTIVE BRIEFING
 **Date:** 2026-10-26  
-**Status:** ✅ PRODUCTION READY — All E2E tests PASSED  
-**Impact:** Postal.Api and Postal.Function complete and working; only remaining: live large-file upload test
+**Status:** ✅ FULLY LIVE IN PRODUCTION — `Postal.Api`, `Postal.Function`, and the classic ASP website `postal-web` all running; production data imported; long-time 404 on all Postal pages fixed  
+**Impact:** Complete migration delivered: legacy desktop importer replaced, legacy website lift & shifted, end-to-end import pipeline operational
 
 ---
 
@@ -17,7 +17,8 @@ The Postal Importer migration from legacy VB.NET WinForms to modern .NET 10 Azur
 - ✅ .NET 10 upgrade: COMPLETE (2026-10-22)
 - ✅ Azure deployment (Visual Studio publish): COMPLETE (2026-10-22T17:20:00Z)
 - ✅ All E2E tests PASSED: COMPLETE (2026-10-26) via `tests/Postal.LiveValidation.ps1`
-- 🟡 Live large-file upload test: PENDING (only remaining validation)
+- ✅ Website production: `postal-web` fully live with production data imported; long-time 404 generating error fixed on all Postal pages (2026-10-26)
+- ✅ Website re-deploy standard: `pwsh infra/web/deploy-website-local.ps1` (replaces ad-hoc zip/deploy steps)
 
 ---
 
