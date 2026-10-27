@@ -1,15 +1,16 @@
 # Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL — Implementation Status
 
-**Last Updated:** 2026-10-27T01:40:00Z (spec v1.5; Postal.Api + Postal.Function complete and working; all E2E tests PASSED; website content live on postal-web; remaining: live large-file upload test)
+**Last Updated:** 2026-10-26T23:30:00Z (spec v1.5; **ALL SERVICES LIVE IN PRODUCTION** — `postal-web` fully running with production data imported; long-time 404 on all Postal pages fixed; Postal.Api + Function live; all E2E tests PASSED)
 **Spec Version:** 1.5  
-**Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete ✅, Azure API + Function live ✅, upload UI feature complete ✅, queue encoding alignment fix deployed ✅, all E2E tests PASSED ✅).  
-**Implementation Phase:** ✅ PRODUCTION READY — Postal.Api and Postal.Function are complete and working; all end-to-end tests passed. Only remaining validation: live large-file upload test.
+**Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete ✅, Azure API + Function live ✅, upload UI feature complete ✅, website production live ✅, queue encoding alignment fix deployed ✅, all E2E tests PASSED ✅).  
+**Implementation Phase:** ✅ **PRODUCTION — fully live.** `postal-web`, `Postal.Api`, and `Postal.Function` all running in production; data imported end-to-end.
 **Agent:** Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot; model: GPT-5 / GitHub Copilot harness)
 
 ## Bicep cleanup progress
 - 2026-10-26T07:30:00Z — cleaned the duplicated App Service plan and resource declarations in `infra/bicep/main.bicep`; retained a single Linux shared plan for `postal-api` + `postal-worker` and kept the separate `postal-web.bicep` module for the Windows website resource.
 - 2026-10-26T07:45:00Z — website infrastructure deployed via Bicep: classic ASP host `postal-web` / `postal-web-plan` is now provisioned and live in westus3; app + function remain on the shared Linux plan and are operating normally.
 - 2026-10-27T01:40:00Z — website **content deployed live** to `postal-web` (deploy-list zip + generated `connvars.asp`, OneDeploy). Fixed during rollout: `connvars.asp` must be a single self-contained `<% … %>` block (HTML-context include in `database.asp`); `postalss.asp` dropdown loop (`rs3.MoveNext`/`wend` were in HTML context → infinite loop) and unguarded header `rs("zipcode")` (EOF 500 on empty `DelstatWeb*`); same EOF/POST guards applied to `printdata.asp`, `SpreadSheetHTML.asp`, `commentsupdate.asp` (also had undefined `table`), `updatedelete.asp`. All 20 spot-checked pages return 200.
+- 2026-10-26T23:30:00Z — **Website confirmed fully live in production**: production data imported; long-time 404 generating error on all Postal pages resolved. Standard re-deploy command documented in `PUBLISH_GUIDE.md` / `PUBLISH_QUICK_REF.md`: `pwsh infra/web/deploy-website-local.ps1` (migration repo, commit `0ad87d9`).
 - Branch: `postal-azure-function-worker`
 - Files: `infra/bicep/main.bicep`, `infra/bicep/postal-web.bicep`
 - Outcome: single canonical Azure resource definition, no duplicate `appServicePlan` resources, module integration preserved, and classic ASP website infra now deployed.
