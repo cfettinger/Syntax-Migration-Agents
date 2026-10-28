@@ -2,7 +2,7 @@
 
 Classic ASP Syntax Intranet → Azure App Service (`intranet-web` on `postal-web-plan`, RG `Syntax`)
 
-**Last Update**: Agent/Skill files retargeted and renamed (postal-migrator → intranet-migrator; postal-migration → intranet-migrator); SQL login `syntaxintranet` normalized to lowercase across all specs and deploy artifacts
+**Last Update**: App Service Authentication set to Allow Anonymous (no AAD app registration); siwebspec.md §10 updated to single-layer forms auth; App Service `intranet-web` provisioned on postal-web-plan (32-bit, Classic pipeline)
 
 Spec: [siwebspec.md](siwebspec.md)
 Source: `D:\Webs\Syntax\syntaxintranet\trunk\web\`
@@ -23,7 +23,7 @@ Migration: `D:\Webs\Syntax\syntaxintranet\migration\web\`
 | 9 | Create `infra/web/deploy-website-local.ps1` | ✅ Done | Stage → zip → az webapp deploy → smoke |
 | 10 | Create SQL login `syntaxintranet` | ✅ Done | Created + stored in Key Vault kvsyntax; local git repo initialized |
 | 11 | Provision App Service `intranet-web` | ☐ Pending | On postal-web-plan, 32-bit, Classic pipeline |
-| 12 | Set App Service Authentication (Entra ID) | ☐ Pending | Anonymous off |
+| 12 | App Service Authentication | ✅ Done | Allow Anonymous (no AAD app registration); forms auth in ASP is sole gate |
 | 13 | Deploy to staging | ☐ Pending | Run deploy-website-local.ps1 |
 | 14 | Smoke test | ☐ Pending | All key pages return 200 |
 | 15 | DNS cutover | ☐ Pending | After two clean cycles on legacy |

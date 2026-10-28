@@ -245,7 +245,7 @@ Disposition: **K** = deploy unchanged, **K+** = deploy with the §6 edits only, 
 
 | # | Defect | Phase | Fix |
 |---|---|---|---|
-| 1 | Anonymous access to a site that writes the DB | **1** | App Service Authentication, Entra ID, no anonymous (§10) |
+| 1 | Anonymous access to a site that writes the DB | **1** | Forms auth gate (`stafflogin.asp` + `database.asp` session check) is the sole perimeter; platform auth set to Allow Anonymous (no AAD app registration) (§10) |
 | 2 | Hardcoded server + password in connection include; leaked `machineKey` in `web.config` | **1** | §6.1 generated `connvars.asp` from pipeline secrets; §6.2 strip machineKey; new login, new password |
 | 3 | Dead / stale database connections (legacy server IPs) | **1** | §6.1 shared include pointing to Azure SQL |
 | 4 | Junk deployed: test pages, abuse text files, IIS search webbot, `aspnet_client`, `Thumbs.db` | **1** | §5 archive/strip |
@@ -286,16 +286,16 @@ The site has its **own** login flow independent of platform auth:
 | `database.asp` | Gates every page: if `Session("accesslevel")` is not `"A"` or `"E"`, redirects to `Default.asp` |
 | `logout.asp` | Clears session, redirects to `stafflogin.asp` |
 
-**Phase 1 (lift & shift): keep both layers.**
+**Phase 1 (lift & shift): single-layer forms auth.**
 
 ```
-Browser → App Service (Entra ID sign-in) → stafflogin.asp (employee login) → app
+Browser → stafflogin.asp (forms login) → app
 ```
 
-- Entra ID is the **network perimeter** (proves the user is a corporate/school identity).
-- The forms login is the **application-level role assignment** (proves which employee, sets access level).
+- **Decision 2026-10-28:** No AAD app registration is created. App Service Authentication is set to **Allow Anonymous** (disabled). The classic ASP forms login (`stafflogin.asp` → `checklogin.asp` → `Session("accesslevel")`) is the **sole authentication gate**.
 - No page changes needed: `checklogin.asp` still validates against the DB, `database.asp` still gates on session vars.
-- The `Web.config` `<authentication mode="Windows"/>` is removed (§6.2) — it is an ASP.NET setting irrelevant to Classic ASP and would conflict with the platform-level Entra ID auth.
+- The `Web.config` `<authentication mode="Windows"/>` is removed (§6.2) — it is an ASP.NET setting irrelevant to Classic ASP.
+- Entra ID SSO (replacing forms login with `REMOTE_USER`) remains a **Phase 2 optional** consolidation.
 
 **Phase 2 (consolidation, optional):**
 
@@ -316,7 +316,7 @@ Browser → App Service (Entra ID sign-in) → stafflogin.asp (employee login) �
 | Runtime stack | .NET 4.8 (Windows) |
 | Platform bits / pipeline | **32 Bit / Classic** |
 | Default document | `index.asp` |
-| App Service Authentication | Entra ID, anonymous off |
+| App Service Authentication | **Disabled** (Allow Anonymous); forms auth in ASP code is the sole gate. No AAD app registration. |
 | App settings | **none required for the site** (connection string deliberately *not* an app setting — classic ASP can't read it; see §6.1). `APPINSIGHTS_INSTRUMENTATIONKEY` via standard integration. |
 | Secrets (CI/CD variable group, pipeline-only) | `INTRANET_DB_SERVER=syntax-sql.database.windows.net`, `INTRANET_DB_NAME=SyntaxIntranet`, `INTRANET_DB_USER=syntaxintranet`, `INTRANET_DB_PASSWORD=fresh, Key Vault-backed` |
 | SQL firewall | Allow Azure Services (+ the legacy VM IP range only during cutover) |
