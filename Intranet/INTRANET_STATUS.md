@@ -2,7 +2,7 @@
 
 Classic ASP Syntax Intranet → Azure App Service (`intranet-web` on `postal-web-plan`, RG `Syntax`)
 
-**Last Update**: App Service Authentication set to Allow Anonymous (no AAD app registration); siwebspec.md §10 updated to single-layer forms auth; App Service `intranet-web` provisioned on postal-web-plan (32-bit, Classic pipeline)
+**Last Update**: App Service `intranet-web` fully configured — AlwaysOn=true, SCM=None, defaultDocument=index.asp; siwebspec.md §6.3 and Environment table updated with all settings
 
 Spec: [siwebspec.md](siwebspec.md)
 Source: `D:\Webs\Syntax\syntaxintranet\trunk\web\`

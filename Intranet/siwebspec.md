@@ -126,12 +126,20 @@ Keep:
 
 ### 6.3 App Service configuration
 
-Set these application settings on `intranet-web`:
+Set these **application settings** on `intranet-web`:
 
 | Setting | Value |
 |---|---|
 | `APPINSIGHTS_INSTRUMENTATIONKEY` | Auto-injected by App Insights integration (or set manually). |
 | `SCM_DO_BUILD_DURING_DEPLOYMENT` | `false` (no build step for Classic ASP). |
+
+Set these **general settings** on `intranet-web`:
+
+| Setting | Value |
+|---|---|
+| **Always On** | `true` (keeps app warm, prevents cold starts) |
+| **SCM type** | `None` (Basic Auth Publishing Credentials = false; use local git or zip deploy only) |
+| **Default document** | `index.asp` (configured via `<defaultDocument>` in `Web.config`, §6.2) |
 
 No connection-string app settings — classic ASP cannot read them. The connection string lives in the generated `connvars.asp`.
 
@@ -315,9 +323,11 @@ Browser → stafflogin.asp (forms login) → app
 | App name / plan | `intranet-web` on **`postal-web-plan`** (Windows, RG `Syntax`) |
 | Runtime stack | .NET 4.8 (Windows) |
 | Platform bits / pipeline | **32 Bit / Classic** |
-| Default document | `index.asp` |
+| Default document | `index.asp` (via `<defaultDocument>` in `Web.config`, §6.2) |
+| Always On | **true** (keeps app warm, prevents cold starts) |
+| SCM type | **None** (Basic Auth Publishing Credentials = false) |
 | App Service Authentication | **Disabled** (Allow Anonymous); forms auth in ASP code is the sole gate. No AAD app registration. |
-| App settings | **none required for the site** (connection string deliberately *not* an app setting — classic ASP can't read it; see §6.1). `APPINSIGHTS_INSTRUMENTATIONKEY` via standard integration. |
+| App settings | **none required for the site** (connection string deliberately *not* an app setting — classic ASP can't read it; see §6.1). `APPINSIGHTS_INSTRUMENTATIONKEY` via standard integration. `SCM_DO_BUILD_DURING_DEPLOYMENT=false`. |
 | Secrets (CI/CD variable group, pipeline-only) | `INTRANET_DB_SERVER=syntax-sql.database.windows.net`, `INTRANET_DB_NAME=SyntaxIntranet`, `INTRANET_DB_USER=syntaxintranet`, `INTRANET_DB_PASSWORD=fresh, Key Vault-backed` |
 | SQL firewall | Allow Azure Services (+ the legacy VM IP range only during cutover) |
 | Monitoring | App Insights; alert 5xx > 5 in 5 min; SQL Audit on |
