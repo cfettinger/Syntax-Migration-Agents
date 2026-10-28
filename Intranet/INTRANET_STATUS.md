@@ -2,7 +2,7 @@
 
 Classic ASP Syntax Intranet → Azure App Service (`intranet-web` on `postal-web-plan`, RG `Syntax`)
 
-**Last Update**: App Service `intranet-web` fully configured — AlwaysOn=true, SCM=None, defaultDocument=index.asp; siwebspec.md §6.3 and Environment table updated with all settings
+**Last Update**: Site deployed to `intranet-web` — Web.config cleaned per §6.2 (removed .NET 3.5 refs, httpHandlers, httpModules, system.codedom); all 8 smoke test pages return 200; deploy script path bug fixed
 
 Spec: [siwebspec.md](siwebspec.md)
 Source: `D:\Webs\Syntax\syntaxintranet\trunk\web\`
@@ -24,8 +24,8 @@ Migration: `D:\Webs\Syntax\syntaxintranet\migration\web\`
 | 10 | Create SQL login `syntaxintranet` | ✅ Done | Created + stored in Key Vault kvsyntax; local git repo initialized |
 | 11 | Provision App Service `intranet-web` | ☐ Pending | On postal-web-plan, 32-bit, Classic pipeline |
 | 12 | App Service Authentication | ✅ Done | Allow Anonymous (no AAD app registration); forms auth in ASP is sole gate |
-| 13 | Deploy to staging | ☐ Pending | Run deploy-website-local.ps1 |
-| 14 | Smoke test | ☐ Pending | All key pages return 200 |
+| 13 | Deploy to staging | ✅ Done | deploy-website-local.ps1; kudu status 4; Web.config cleaned per §6.2 |
+| 14 | Smoke test | ✅ Done | All 8 pages return 200 (/, Default.asp, index.asp, styles.css, css/global.css, scripts/jquery.js, images/logo.gif, nav.asp) |
 | 15 | DNS cutover | ☐ Pending | After two clean cycles on legacy |
 
 ## Phase 2 Tasks (post-cutover)
