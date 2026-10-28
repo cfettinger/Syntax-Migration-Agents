@@ -45,7 +45,7 @@ One note that does **not** apply: "use Connection strings app settings for the d
   - **Platform: 32 Bit; Managed pipeline: Classic**; HTTPS-only enabled; Application health monitoring on; Pre-/post-compilation handlers unused.
   - **Authentication: Entra ID (App Service Authentication)**, "Allow unauthenticated users = No" (§10).
   - Custom domain (CNAME) with App Service-managed certificate.
-- **New SQL login `SyntaxIntranet`** in the shared database (§7). The importer's identity from `spec.md` is unchanged.
+- **New SQL login `syntaxintranet`** in the shared database (§7). The importer's identity from `spec.md` is unchanged.
 - **App Insights** — reuse; the site's failures (500s, ADODB errors) land in the same component or a second one. Alert on 5xx spikes.
 - Storage account: **none in Phase 1**. No queue, no Function. If the §6.5 upload add-on is enabled, reuse `syntaxstoragev2` (container `syntaxstoragecontainer1`) — do not create a second one.
 
@@ -124,7 +124,7 @@ Phase 1 ships without uploads. If the classic site later gains an upload feature
 
 Shared Azure SQL database (per `spec.md`). The website touches its own set of tables and stored procedures.
 
-Login `SyntaxIntranet` (SQL-user, not the importer's identity — isolates the site's write surface):
+Login `syntaxintranet` (SQL-user, not the importer's identity — isolates the site's write surface):
 
 | Table / object | Grant |
 |---|---|
@@ -136,11 +136,11 @@ Login `SyntaxIntranet` (SQL-user, not the importer's identity — isolates the s
 
 ```sql
 -- Template: populate with actual table/procedure names from the site's source
-CREATE USER [SyntaxIntranet] FOR LOGIN [SyntaxIntranet];
-GRANT SELECT ON dbo.<table1>, dbo.<table2> TO [SyntaxIntranet];
-GRANT UPDATE ON dbo.<table3> TO [SyntaxIntranet];
-GRANT INSERT, DELETE ON dbo.<table4> TO [SyntaxIntranet];
-GRANT EXECUTE ON dbo.<proc1>, dbo.<proc2> TO [SyntaxIntranet];
+CREATE USER [SyntaxIntranet] FOR LOGIN [syntaxintranet];
+GRANT SELECT ON dbo.<table1>, dbo.<table2> TO [syntaxintranet];
+GRANT UPDATE ON dbo.<table3> TO [syntaxintranet];
+GRANT INSERT, DELETE ON dbo.<table4> TO [syntaxintranet];
+GRANT EXECUTE ON dbo.<proc1>, dbo.<proc2> TO [syntaxintranet];
 ```
 
 This least-privilege set **contains the blast radius** of any remaining SQL injection (§8) if Phase 2 slips: an attacker cannot truncate core tables or write `ImportJob`, and only the enumerated DML surfaces exist.
@@ -212,7 +212,7 @@ Disposition: **K** = deploy unchanged, **K+** = deploy with the §6 edits only, 
 | Default document | `index.asp` |
 | App Service Authentication | Entra ID, anonymous off |
 | App settings | **none required for the site** (connection string deliberately *not* an app setting — classic ASP can't read it; see §6.1). `APPINSIGHTS_INSTRUMENTATIONKEY` via standard integration. |
-| Secrets (CI/CD variable group, pipeline-only) | `INTRANET_DB_SERVER`, `INTRANET_DB_NAME`, `INTRANET_DB_USER=new login SyntaxIntranet`, `INTRANET_DB_PASSWORD=fresh, Key Vault-backed` |
+| Secrets (CI/CD variable group, pipeline-only) | `INTRANET_DB_SERVER`, `INTRANET_DB_NAME`, `INTRANET_DB_USER=new login syntaxtntranet`, `INTRANET_DB_PASSWORD=fresh, Key Vault-backed` |
 | SQL firewall | Allow Azure Services (+ the legacy VM IP range only during cutover) |
 | Monitoring | App Insights; alert 5xx > 5 in 5 min; SQL Audit on |
 
@@ -243,7 +243,7 @@ Disposition: **K** = deploy unchanged, **K+** = deploy with the §6 edits only, 
 - Migration output: `D:\Webs\Syntax\syntaxintranet\migration`.
 - Connection string travels via generated `connvars.asp` (not an app setting — classic ASP limitation).
 - Authentication: App Service Authentication + Entra ID; no anonymous access.
-- SQL login: new least-privilege `SyntaxIntranet` user (separate from importer identity).
+- SQL login: new least-privilege `syntaxintranet` user (separate from importer identity).
 - Phase 1 = deploy, fix connections, strip junk, add auth. Phase 2 = parameterize queries, fix stale links, remove dead code, automate date rendering.
 
 ## Status
