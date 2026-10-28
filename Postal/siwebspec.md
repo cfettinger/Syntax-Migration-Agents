@@ -1,6 +1,6 @@
 # Spec: Classic ASP Syntax Intranet website (`trunk` → Azure App Service Windows, lift & shift)
 
-Version 1.0, 2026-10-27
+Version 1.1, 2026-10-28 (v1.1: reviewed against actual source — populated page inventory, fixed §6.1 connection pattern, added Web.config specifics, identified 5 new defects #15–#19, confirmed Azure resources: `postal-web-plan`, `syntax-sql/SyntaxIntranet`)
 
 Companion to `spec.md` (desktop importer → .NET 10). This spec covers the operator-facing intranet site at `trunk/` (**Classic ASP / VBScript / ADODB** on IIS).
 
@@ -41,7 +41,7 @@ One note that does **not** apply: "use Connection strings app settings for the d
 
 `spec.md` already provisions App Service (importer), Storage, Azure SQL, managed identity, Key Vault, App Insights. This spec **adds one resource and one service principal/login**:
 
-- **App Service `intranet-web`** — Windows, .NET 4.8 runtime stack (stack is irrelevant beyond "Windows"; pick .NET 4.8), Basic B1+ (may share the importer's Windows plan if the importer runs there; otherwise its own plan — two apps never share code). Configuration:
+- **App Service `intranet-web`** — Windows, .NET 4.8 runtime stack (stack is irrelevant beyond "Windows"; pick .NET 4.8), on plan **`postal-web-plan`** (existing Windows plan in RG `Syntax`). Configuration:
   - **Platform: 32 Bit; Managed pipeline: Classic**; HTTPS-only enabled; Application health monitoring on; Pre-/post-compilation handlers unused.
   - **Authentication: Entra ID (App Service Authentication)**, "Allow unauthenticated users = No" (§10).
   - Custom domain (CNAME) with App Service-managed certificate.
@@ -51,48 +51,76 @@ One note that does **not** apply: "use Connection strings app settings for the d
 
 ## Source inventory and cleanup
 
-Working copy: `trunk/`. Deploy set = column 2 only.
+Working copy: `trunk/web/`. Migration output: `D:\Webs\Syntax\syntaxintranet\migration\web\`.
 
-**Deploy (as-is):** All production `.asp` pages, `styles.css`, `nav.html`, all `*.gif` nav/header images, `web.config` (edited per §6.2), and any supporting assets referenced by the live pages.
+**Deploy (as-is):** All production `.asp` pages (62 files), `global.asa`, `styles.css`, `Web.config` (edited per §6.2), and supporting directories: `css/`, `images/`, `includes/`, `dropdown/`, `calendar/`, `announcements/`, `expense/`, `leadlog/`, `scripts/` (selective — see deploy-list.txt).
 
 **Move to `/_archive/` (do not deploy; keep in repo for reference):**
-- Test/experiment `.asp` files not used by production navigation.
-- Any stale email-test or debug pages.
-- Junk files (e.g., single-line abuse text, scratch pages).
+- `test.asp` — scratch/debug page
+- `staging_temp.asp` — staging experiment
+- `slacker.asp`, `slacker list.doc`, `slacker.doc` — personal/junk
+- `party.html`, `taglit-brithright.html`, `template.html` — personal/unused HTML
+- `index.html` — superseded by `index.asp`
+- `viewmiles_old.asp` — old version
+- `leadlog/*_old.asp` (5 files) — old versions
+- `leadlog/test.asp` — test page
+- `avalon4/` — personal family page (glenn, kid, nicole, paul)
 
-**Do not deploy at all:** `backup/` (stale revisions), `aspnet_client/` (auto-generated .NET runtime), `Thumbs.db`, IIS search webbot pages, solution files (`.sln`), IDE folders (`.vs/`).
+**Do not deploy at all:**
+- `.vs/` (IDE), `aspnet_client/` (auto-generated .NET runtime), `_derived/` (build artifacts)
+- `Thumbs.db` (all instances)
+- `search.htm` (IIS 4-era text search webbot)
+- `files.txt` (file listing, not a web asset)
+- `Web.config.local`, `Web.config.production` (config variants)
+- `scripts/jquery-ui-1.10.3.custom/development-bundle/` (dev docs/demos, ~200 files)
+- `scripts/jquery-ui-1.10.3.custom/index.html`
 
 ## Phase 1 code changes (small, mechanical)
 
-### 6.1 Database connection — `database.asp` (or equivalent include)
+### 6.1 Database connection — `database.asp` (server-side include used by every page)
 
-Today (per request, every page):
+`database.asp` is the **single include** every page pulls in. It contains:
+- The `conn.Open` call (hardcoded credentials)
+- Access-level gate (`Session("accesslevel")` must be `"A"` or `"E"`, else redirect to `Default.asp`)
+- Helper functions: `getAccessLevel()`, `ReadFormVariables()`, `validateInput()`, `validateZip()`, `returnValidated()`, `returnZipValidated()`
+
+Today (line 8, active connection):
+```asp
+conn.Open "driver={ODBC Driver 17 for SQL Server};server=172.20.0.141;database=SyntaxIntranet","syntaxintranet","xXw8s7-n383a"
+```
+(Commented history: `chase\chase/syntaxleadlog`, `208.112.84.42/SyntaxIntranet`, `172.20.0.210/SyntaxIntranet`, `192.168.1.124/SyntaxIntranet`.)
+
+**Change to:**
 ```asp
 <!--#include file="connvars.asp"-->
 conn.Open ConnString, DbUser, DbPassword
 ```
-(Commented lines above it show the address history and legacy credentials.)
 
-Change to:
+`connvars.asp` is **generated at deploy time** by the CI/CD pipeline from Key Vault secrets — never committed to source. It defines `ConnString`, `DbUser`, `DbPassword` using **SQLOLEDB** (built-in on Windows App Service; ODBC Driver 17 is NOT installed):
+
 ```asp
-<!--#include file="connvars.asp"-->' connvars.asp generated by CI/CD from Key Vault secrets
-' ...
-conn.Open ConnString, DbUser, DbPassw
+<%
+ConnString = "Provider=SQLOLEDB;Data Source=tcp:syntax-sql.database.windows.net,1433;Initial Catalog=SyntaxIntranet;"
+DbUser = "SyntaxIntranet"
+DbPassword = "<generated-from-keyvault>"
+%>
 ```
 
-`connvars.asp` is **generated at deploy time** by the CI/CD pipeline from Key Vault secrets — never committed to source. The include path stays the same; only its content changes.
+**Also fix `leadlog/database.asp`** — the leadlog sub-app has its own `database.asp` with a separate hardcoded connection. Apply the same `connvars.asp` include pattern there.
 
-### 6.2 `web.config` cleanup
+### 6.2 `Web.config` cleanup
 
 Strip:
-- `<machineKey>` (leaked / hardcoded).
-- Any inline connection strings or credentials.
-- Legacy IIS handler mappings not needed by Classic ASP.
+- `<machineKey validationKey="C47DAAA0..." decryptionKey="D7011F47..." />` — leaked hardcoded keys (line 73).
+- `<authentication mode="Windows"/>` — irrelevant for Classic ASP; App Service Authentication (Entra ID) handles auth at the platform level. Remove or set to `None`.
+- `<compilation debug="true">` — set to `debug="false"` for production.
+- `<httpErrors errorMode="Detailed"/>` — change to `errorMode="Custom"` to hide stack traces.
+- .NET 3.5 assembly references, `httpHandlers`, `httpModules`, `system.codedom` — not needed for Classic ASP; remove to reduce surface area.
 
 Keep:
-- `<customErrors mode="RemoteOnly" />` (or `On` in production to hide stack traces).
-- `<httpErrors errorMode="Custom" />` with a friendly 500 page.
-- Static content and directory browsing settings as needed.
+- `<defaultDocument>` with `index.asp` first (correct).
+- `<pages enableSessionState="true" />` (ASP sessions depend on this).
+- `<validation validateIntegratedModeConfiguration="false"/>` (prevents IIS config validation errors).
 
 ### 6.3 App Service configuration
 
@@ -136,11 +164,11 @@ Login `syntaxintranet` (SQL-user, not the importer's identity — isolates the s
 
 ```sql
 -- Template: populate with actual table/procedure names from the site's source
-CREATE USER [SyntaxIntranet] FOR LOGIN [syntaxintranet];
-GRANT SELECT ON dbo.<table1>, dbo.<table2> TO [syntaxintranet];
-GRANT UPDATE ON dbo.<table3> TO [syntaxintranet];
-GRANT INSERT, DELETE ON dbo.<table4> TO [syntaxintranet];
-GRANT EXECUTE ON dbo.<proc1>, dbo.<proc2> TO [syntaxintranet];
+CREATE USER [SyntaxIntranet] FOR LOGIN [SyntaxIntranet];
+GRANT SELECT ON dbo.<table1>, dbo.<table2> TO [SyntaxIntranet];
+GRANT UPDATE ON dbo.<table3> TO [SyntaxIntranet];
+GRANT INSERT, DELETE ON dbo.<table4> TO [SyntaxIntranet];
+GRANT EXECUTE ON dbo.<proc1>, dbo.<proc2> TO [SyntaxIntranet];
 ```
 
 This least-privilege set **contains the blast radius** of any remaining SQL injection (§8) if Phase 2 slips: an attacker cannot truncate core tables or write `ImportJob`, and only the enumerated DML surfaces exist.
@@ -151,9 +179,9 @@ Legacy state, all of it:
 
 | State | Where | Used by | Migration |
 |---|---|---|---|
-| ASP session variables (e.g., `session("mode")`) | In-process session | Pages that branch on mode/district | **Keep `intranet-web` at 1 instance in Phase 1** (in-process session is fine). If scale-out is ever needed: move mode into the selection page's query string, or configure SQL/Redis session state. |
-| Cookie-based state | Browser cookie | Pages that read district/context from cookies | Known defect: cookie usually unset → fallback to default. Phase 1 keeps behavior; Phase 2 switches all context to query string/validated session value. |
-| Client-side nav state | JS in every page | nav highlights (`MM_swapImage`) | Keep as-is. |
+| `Session("accesslevel")` = `"A"` (admin) / `"E"` (employee) | ASP session | `database.asp` gate (redirect if not A/E); nav includes branch on role | **Keep `intranet-web` at 1 instance in Phase 1** (in-process session is fine). If scale-out is ever needed: configure SQL/Redis session state. |
+| `Session("employeeid")` | ASP session | Set at login; used by `database.asp` (`Cint(Session("employeeid"))`) and most data pages for row-level filtering | Same as above. |
+| Client-side nav state | JS in every page | nav highlights | Keep as-is. |
 
 ## Page inventory (role verified against source)
 
@@ -161,9 +189,45 @@ Disposition: **K** = deploy unchanged, **K+** = deploy with the §6 edits only, 
 
 | Page | Role (verified) | Disp. | Notes / drift warnings |
 |---|---|---|---|
-| *(Populate from actual source inventory)* | *(Description)* | K/K+/A | *(Drift notes)* |
-
-> **Action required:** Walk the `trunk/` directory, catalog every `.asp` file, verify which are reachable from navigation, and fill this table before implementation.
+| `Default.asp` | Login gate; checks `Session("accesslevel")`, redirects to `stafflogin.asp` if unset | K+ | Entry point after auth |
+| `stafflogin.asp` | Login form (username/password → DB check) | K+ | Phase 2: replace with Entra ID SSO |
+| `checklogin.asp` | Validates credentials against DB, sets session | K+ | SQL injection risk (Phase 2) |
+| `checkfirstlogin.asp` | First-login password change flow | K+ | |
+| `logout.asp` | Clears session, redirects to login | K+ | |
+| `index.asp` | Main dashboard/home after login | K+ | |
+| `index1.asp`, `index2.asp` | Alternate dashboard views | K+ | Verify which is linked from nav |
+| `admin.asp` | Admin panel (user management entry) | K+ | |
+| `useradmin.asp` | User CRUD (add/edit/delete employees) | K+ | |
+| `useradminupdate.asp` | Saves user changes | K+ | |
+| `nav.asp` | Main navigation include (role-based) | K+ | |
+| `navAdmin.asp` | Admin nav include | K+ | |
+| `navEmployee.asp` | Employee nav include | K+ | |
+| `navLocal*.asp` (8 files) | Sub-section nav includes (Admin, Client, Expense, Job, Miles, Time, UserAdmin) | K+ | |
+| `addclient.asp` / `editclient.asp` / `saveclient.asp` / `validateclient.asp` / `chooseclient.asp` / `clientlist.asp` | Client CRUD | K+ | |
+| `addjob.asp` / `editjob.asp` / `savejob.asp` / `listjobs.asp` | Job CRUD | K+ | |
+| `dailyjoblist.asp` / `dailyviewall.asp` | Daily job views | K+ | |
+| `displayview.asp` / `displayview_t2c.asp` | Job detail views | K+ | |
+| `print_displayview_t2c.asp` / `print_schedule.asp` | Print views | K+ | Verify print layout parity |
+| `addhours.asp` / `edithours.asp` / `entertime.asp` / `viewhours.asp` / `viewhours_t2c.asp` / `printhours.asp` | Time tracking CRUD + print | K+ | |
+| `addexpense.asp` / `enterExpense.asp` / `displayexpense.asp` / `viewexpense.asp` / `printexpense.asp` | Expense tracking CRUD + print | K+ | |
+| `addmiles.asp` / `entermiles.asp` / `displaymiles.asp` / `viewmiles.asp` / `printmiles.asp` | Mile tracking CRUD + print | K+ | |
+| `deleteEmployee.asp` / `updateEmployee.asp` | Employee management | K+ | |
+| `contracts.asp` | Contract viewing | K+ | |
+| `jobdescriptions.asp` | Job description reference | K+ | |
+| `error.asp` | Custom error page | K+ | |
+| `database.asp` | **Server-side include**: connection + helper functions (`validateInput`, `ReadFormVariables`, etc.) | K+ | §6.1: add `connvars.asp` include, remove hardcoded conn |
+| `global.asa` | Application lifecycle; `session_onEnd` handler | K+ | §6.15: fix `endsession.asp` reference |
+| `styles.css` | Main stylesheet | K | |
+| `Web.config` | IIS/ASP.NET config | K+ | §6.2: strip machineKey, debug, Windows auth, Detailed errors |
+| `leadlog/` (12 files) | Lead log sub-app (contacts, companies, logs) | K+ | Has own `database.asp` (§6.16) |
+| `expense/` (6 files) | Expense sub-app (alternate views) | K+ | |
+| `css/` (12 files) | Stylesheets (admin, design, global, layout, login, nav) | K | |
+| `images/` (~40 files) | Nav buttons, logos, backgrounds, lightwindow assets | K | |
+| `includes/` (8 files) | JS includes (Calendar, lightwindow, date-format) + HTML partials | K | |
+| `dropdown/` (3 files) | Dropdown nav (p7exp.js/css, nav.html) | K | |
+| `calendar/` (2 files) | Calendar JS + example | K | |
+| `announcements/` (8 files) | Announcement images (party, wedding) | K | |
+| `scripts/` (selective) | jQuery, jQuery UI (css/js only), jscalendar, timepicker, tablesorter | K | Excludes development-bundle |
 
 ## Behaviors that must survive (acceptance matrix)
 
@@ -193,26 +257,66 @@ Disposition: **K** = deploy unchanged, **K+** = deploy with the §6 edits only, 
 | 12 | Stale links: broken navigation targets, hardcoded legacy URLs | **2** | Fix targets; relative URLs |
 | 13 | `conn` / recordsets never closed (per-request ODBC handle churn) | **2** | `rs.Close` / `conn.Close` in each page's tail (or a shared `endpage.asp` include) |
 | 14 | Latent: any future file-upload feature on this classic site landing in `wwwroot`/`Path.GetTempPath()` | **if added** | §6.5: post to ASP.NET endpoint calling `BlobClient.UploadAsync`, or VBScript `MSXML2.ServerXMLHTTP` PUT to per-request `cw` SAS |
+| 15 | `global.asa` `session_onEnd` calls `System.Web.Response.Redirect "endsession.asp"` — file does not exist in the deploy set; uses ASP.NET API in a Classic ASP context | **1** | Replace with `Response.Redirect "logout.asp"` (existing page) or remove the handler if session cleanup is handled elsewhere |
+| 16 | `leadlog/database.asp` has its own hardcoded connection (separate from root `database.asp`) | **1** | Apply same `connvars.asp` include pattern (§6.1) to `leadlog/database.asp` |
+| 17 | `Web.config` has `<authentication mode="Windows"/>` — conflicts with App Service Entra ID auth; may cause 401 loops for Classic ASP pages | **1** | Remove or set to `None` (§6.2) |
+| 18 | `Web.config` has `<httpErrors errorMode="Detailed"/>` — exposes full stack traces to users | **1** | Change to `Custom` (§6.2) |
+| 19 | `Web.config` has `<compilation debug="true">` — performance hit + verbose errors in production | **1** | Set to `false` (§6.2) |
 
 ## Identity and authentication
+
+### 10.1 Platform-level: App Service Authentication (Entra ID)
 
 - **App Service Authentication** on `intranet-web`: Entra ID tenant app registration, **"Allow unauthenticated requests" OFF**, sign-in action **Login**. Operators sign in with their work/school account; restrict eligible group to the intranet-ops group.
 - Classic ASP sees the authenticated user in `Request.ServerVariables("REMOTE_USER")`; no page changes needed in Phase 1 (no page renders the user name).
 - HTTPS-only enforced at the App Service level; the custom-domain managed certificate covers the intranet domain and `*.syntaxcom.com`.
 - No client certificates, no Windows auth (the browser doesn't present domain creds to App Service Authentication the way old IIS did).
+
+### 10.2 Application-level: Forms authentication (existing site login)
+
+The site has its **own** login flow independent of platform auth:
+
+| Page | Role |
+|---|---|
+| `stafflogin.asp` | Login form (employee ID + password) |
+| `checklogin.asp` | Validates credentials against DB, sets `Session("accesslevel")` = `"A"` or `"E"`, sets `Session("employeeid")` |
+| `checkfirstlogin.asp` | First-login forced password change |
+| `database.asp` | Gates every page: if `Session("accesslevel")` is not `"A"` or `"E"`, redirects to `Default.asp` |
+| `logout.asp` | Clears session, redirects to `stafflogin.asp` |
+
+**Phase 1 (lift & shift): keep both layers.**
+
+```
+Browser → App Service (Entra ID sign-in) → stafflogin.asp (employee login) → app
+```
+
+- Entra ID is the **network perimeter** (proves the user is a corporate/school identity).
+- The forms login is the **application-level role assignment** (proves which employee, sets access level).
+- No page changes needed: `checklogin.asp` still validates against the DB, `database.asp` still gates on session vars.
+- The `Web.config` `<authentication mode="Windows"/>` is removed (§6.2) — it is an ASP.NET setting irrelevant to Classic ASP and would conflict with the platform-level Entra ID auth.
+
+**Phase 2 (consolidation, optional):**
+
+- Replace `stafflogin.asp` / `checklogin.asp` with a single sign-on page that reads `REMOTE_USER` from Entra ID, looks up the employee record by UPN/email, and sets `Session("accesslevel")` + `Session("employeeid")` without a second password prompt.
+- Remove the employee password column from the DB (or mark it deprecated).
+- `database.asp` gate unchanged (still checks session vars).
+- Record the decision in `CONVERSION.md`.
+
+### 10.3 Database authentication
+
 - The site's **database** login is the fixed `SyntaxIntranet` SQL user for every user — same as today's shared credential. Per-user DB accounts are out of scope; audit is supplied by SQL Audit + App Insights instead.
 
 ## Environment and configuration
 
 | Setting | Value |
 |---|---|
-| App name / plan | `intranet-web`, Windows, B1+ (shared plan with the importer allowed if it runs Windows) |
+| App name / plan | `intranet-web` on **`postal-web-plan`** (Windows, RG `Syntax`) |
 | Runtime stack | .NET 4.8 (Windows) |
 | Platform bits / pipeline | **32 Bit / Classic** |
 | Default document | `index.asp` |
 | App Service Authentication | Entra ID, anonymous off |
 | App settings | **none required for the site** (connection string deliberately *not* an app setting — classic ASP can't read it; see §6.1). `APPINSIGHTS_INSTRUMENTATIONKEY` via standard integration. |
-| Secrets (CI/CD variable group, pipeline-only) | `INTRANET_DB_SERVER`, `INTRANET_DB_NAME`, `INTRANET_DB_USER=new login syntaxtntranet`, `INTRANET_DB_PASSWORD=fresh, Key Vault-backed` |
+| Secrets (CI/CD variable group, pipeline-only) | `INTRANET_DB_SERVER=syntax-sql.database.windows.net`, `INTRANET_DB_NAME=SyntaxIntranet`, `INTRANET_DB_USER=SyntaxIntranet`, `INTRANET_DB_PASSWORD=fresh, Key Vault-backed` |
 | SQL firewall | Allow Azure Services (+ the legacy VM IP range only during cutover) |
 | Monitoring | App Insights; alert 5xx > 5 in 5 min; SQL Audit on |
 
@@ -243,19 +347,26 @@ Disposition: **K** = deploy unchanged, **K+** = deploy with the §6 edits only, 
 - Migration output: `D:\Webs\Syntax\syntaxintranet\migration`.
 - Connection string travels via generated `connvars.asp` (not an app setting — classic ASP limitation).
 - Authentication: App Service Authentication + Entra ID; no anonymous access.
-- SQL login: new least-privilege `syntaxintranet` user (separate from importer identity).
+- SQL login: new least-privilege `SyntaxIntranet` user (separate from importer identity).
+- App Service Plan: **`postal-web-plan`** (existing Windows plan, RG `Syntax`).
+- Database: **`SyntaxIntranet`** on server **`syntax-sql`** (RG `Syntax`).
 - Phase 1 = deploy, fix connections, strip junk, add auth. Phase 2 = parameterize queries, fix stale links, remove dead code, automate date rendering.
 
 ## Status
 
 | Item | Status | Notes |
 |---|---|---|
-| Source inventory complete | ☐ Pending | Walk `trunk/`, catalog `.asp` files, verify navigation reachability |
-| Page inventory table filled | ☐ Pending | Populate §8 with actual pages and dispositions |
-| Defect catalog verified against source | ☐ Pending | Confirm each defect exists in the working copy |
-| SQL grants drafted | ☐ Pending | Replace template in §7 with actual table/procedure names |
+| Source inventory complete | ✅ Done | 62 ASP files + 9 dirs cataloged; `deploy-list.txt` created |
+| Page inventory table filled | ✅ Done | §8 populated with all pages and dispositions |
+| Defect catalog verified against source | ✅ Done | 19 defects identified from actual source review |
+| Files copied to migration folder | ✅ Done | `D:\Webs\Syntax\syntaxintranet\migration\web\` populated |
+| Deploy script created | ✅ Done | `infra/web/deploy-website-local.ps1` + `gen-connvars.ps1` |
+| SQL grants drafted | ☐ Pending | Replace template in §7 with actual table/procedure names from `SyntaxIntranet` DB |
 | `connvars.asp` generation pipeline defined | ☐ Pending | CI/CD step to pull secrets from Key Vault and write include file |
-| App Service `intranet-web` provisioned | ☐ Pending | Bicep/azd template update |
+| `database.asp` + `leadlog/database.asp` edited | ☐ Pending | Add `connvars.asp` include, remove hardcoded ODBC connection |
+| `Web.config` cleaned | ☐ Pending | Strip machineKey, debug, Windows auth, Detailed errors |
+| `global.asa` fixed | ☐ Pending | Replace `endsession.asp` reference with `logout.asp` |
+| App Service `intranet-web` provisioned | ☐ Pending | Deploy to `postal-web-plan` (RG `Syntax`) |
 | Staging deployment successful | ☐ Pending | Acceptance matrix passed against copy of database |
 | DNS cutover complete | ☐ Pending | Custom domain pointed to `intranet-web` |
 | Legacy server decommissioned | ☐ Pending | After two clean cycles |
