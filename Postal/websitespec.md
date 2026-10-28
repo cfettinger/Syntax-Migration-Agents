@@ -41,6 +41,8 @@ One note from `syntax-webapp.txt` that does **not** apply: "use Connection strin
 
 `spec.md` already provisions App Service (importer), Storage, Azure SQL, managed identity, Key Vault, App Insights. This spec **adds one resource and one service principal/login**:
 
+> **Azure AI Services / Foundry note (future work):** Subscription `5a5056f9-2199-4063-9133-0d9a32714a8a` is eligible to upgrade from **AI Services Free Tier** to **Tier 1**. This is informational and does not change the classic ASP website lift-and-shift plan, but it enables optional future **Azure AI Foundry Agent** additions (operator help/automation) under the same subscription.
+
 - **App Service `postal-web`** — Windows, .NET 4.8 runtime stack (stack is irrelevant beyond "Windows"; pick .NET 4.8), Basic B1+ (may share the importer's Windows plan if the importer runs there; otherwise its own plan — two apps never share code). Configuration:
   - **Platform: 32 Bit; Managed pipeline: Classic**; HTTPS-only enabled; Application health monitoring on; Pre-/post-compilation handlers unused.
   - **Authentication: Entra ID (App Service Authentication)**, "Allow unauthenticated users = No" (§10).

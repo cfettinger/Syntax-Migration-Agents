@@ -41,6 +41,8 @@ One note that does **not** apply: "use Connection strings app settings for the d
 
 `spec.md` already provisions App Service (importer), Storage, Azure SQL, managed identity, Key Vault, App Insights. This spec **adds one resource and one service principal/login**:
 
+> **Azure AI Services / Foundry note (future work):** Subscription `5a5056f9-2199-4063-9133-0d9a32714a8a` is eligible to upgrade from **AI Services Free Tier** to **Tier 1**. This is informational and does not change the intranet lift-and-shift plan, but it enables optional future **Azure AI Foundry Agent** additions (operator help/automation) under the same subscription.
+
 - **App Service `intranet-web`** — Windows, .NET 4.8 runtime stack (stack is irrelevant beyond "Windows"; pick .NET 4.8), on plan **`postal-web-plan`** (existing Windows plan in RG `Syntax`). Configuration:
   - **Platform: 32 Bit; Managed pipeline: Classic**; HTTPS-only enabled; Application health monitoring on; Pre-/post-compilation handlers unused.
   - **Authentication: Entra ID (App Service Authentication)**, "Allow unauthenticated users = No" (§10).
@@ -101,7 +103,7 @@ conn.Open ConnString, DbUser, DbPassword
 ```asp
 <%
 ConnString = "Provider=SQLOLEDB;Data Source=tcp:syntax-sql.database.windows.net,1433;Initial Catalog=SyntaxIntranet;"
-DbUser = "SyntaxIntranet"
+DbUser = "syntaxintranet"
 DbPassword = "<generated-from-keyvault>"
 %>
 ```
@@ -164,11 +166,11 @@ Login `syntaxintranet` (SQL-user, not the importer's identity — isolates the s
 
 ```sql
 -- Template: populate with actual table/procedure names from the site's source
-CREATE USER [SyntaxIntranet] FOR LOGIN [SyntaxIntranet];
-GRANT SELECT ON dbo.<table1>, dbo.<table2> TO [SyntaxIntranet];
-GRANT UPDATE ON dbo.<table3> TO [SyntaxIntranet];
-GRANT INSERT, DELETE ON dbo.<table4> TO [SyntaxIntranet];
-GRANT EXECUTE ON dbo.<proc1>, dbo.<proc2> TO [SyntaxIntranet];
+CREATE USER [syntaxintranet] FOR LOGIN [syntaxintranet];
+GRANT SELECT ON dbo.<table1>, dbo.<table2> TO [syntaxintranet];
+GRANT UPDATE ON dbo.<table3> TO [syntaxintranet];
+GRANT INSERT, DELETE ON dbo.<table4> TO [syntaxintranet];
+GRANT EXECUTE ON dbo.<proc1>, dbo.<proc2> TO [syntaxintranet];
 ```
 
 This least-privilege set **contains the blast radius** of any remaining SQL injection (§8) if Phase 2 slips: an attacker cannot truncate core tables or write `ImportJob`, and only the enumerated DML surfaces exist.
@@ -304,7 +306,7 @@ Browser → App Service (Entra ID sign-in) → stafflogin.asp (employee login) �
 
 ### 10.3 Database authentication
 
-- The site's **database** login is the fixed `SyntaxIntranet` SQL user for every user — same as today's shared credential. Per-user DB accounts are out of scope; audit is supplied by SQL Audit + App Insights instead.
+- The site's **database** login is the fixed `syntaxintranet` SQL user for every user — same as today's shared credential. Per-user DB accounts are out of scope; audit is supplied by SQL Audit + App Insights instead.
 
 ## Environment and configuration
 
@@ -316,7 +318,7 @@ Browser → App Service (Entra ID sign-in) → stafflogin.asp (employee login) �
 | Default document | `index.asp` |
 | App Service Authentication | Entra ID, anonymous off |
 | App settings | **none required for the site** (connection string deliberately *not* an app setting — classic ASP can't read it; see §6.1). `APPINSIGHTS_INSTRUMENTATIONKEY` via standard integration. |
-| Secrets (CI/CD variable group, pipeline-only) | `INTRANET_DB_SERVER=syntax-sql.database.windows.net`, `INTRANET_DB_NAME=SyntaxIntranet`, `INTRANET_DB_USER=SyntaxIntranet`, `INTRANET_DB_PASSWORD=fresh, Key Vault-backed` |
+| Secrets (CI/CD variable group, pipeline-only) | `INTRANET_DB_SERVER=syntax-sql.database.windows.net`, `INTRANET_DB_NAME=SyntaxIntranet`, `INTRANET_DB_USER=syntaxintranet`, `INTRANET_DB_PASSWORD=fresh, Key Vault-backed` |
 | SQL firewall | Allow Azure Services (+ the legacy VM IP range only during cutover) |
 | Monitoring | App Insights; alert 5xx > 5 in 5 min; SQL Audit on |
 
@@ -347,7 +349,7 @@ Browser → App Service (Entra ID sign-in) → stafflogin.asp (employee login) �
 - Migration output: `D:\Webs\Syntax\syntaxintranet\migration`.
 - Connection string travels via generated `connvars.asp` (not an app setting — classic ASP limitation).
 - Authentication: App Service Authentication + Entra ID; no anonymous access.
-- SQL login: new least-privilege `SyntaxIntranet` user (separate from importer identity).
+- SQL login: new least-privilege `syntaxintranet` user (separate from importer identity).
 - App Service Plan: **`postal-web-plan`** (existing Windows plan, RG `Syntax`).
 - Database: **`SyntaxIntranet`** on server **`syntax-sql`** (RG `Syntax`).
 - Phase 1 = deploy, fix connections, strip junk, add auth. Phase 2 = parameterize queries, fix stale links, remove dead code, automate date rendering.

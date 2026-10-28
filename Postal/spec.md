@@ -8,6 +8,12 @@ Version 1.4, 2026-10-21 (v1.4: optimized .NET 10 upgrade instructions — full s
 
 Read this file and the desktop project. Produce a .NET web app that preserves file-to-database behavior. Target .NET 10 before .NET 8 LTS EOL (2026-11-10). Do not keep the desktop client.
 
+## Azure AI Services / Foundry note (future work)
+
+- Subscription `5a5056f9-2199-4063-9133-0d9a32714a8a` is eligible to upgrade from **AI Services Free Tier** to **Tier 1**.
+- This does **not** change the current Postal architecture.
+- It means follow-on work may optionally use **Azure AI Foundry Agents** (e.g., operator guidance, migration automation, enhanced validation) under this subscription when/if approved.
+
 ## Runtime Upgrade Policy (.NET 10)
 
 **Deadline:** .NET 8 LTS reaches end of support on **2026-11-10**. All projects must build and run on `net10.0` instead.

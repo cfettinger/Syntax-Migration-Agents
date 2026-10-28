@@ -2,7 +2,9 @@
 
 Classic ASP Syntax Intranet → Azure App Service (`intranet-web` on `postal-web-plan`, RG `Syntax`)
 
-Spec: [siwebspec.md](Postal/siwebspec.md)
+**Last Update**: Agent/Skill files retargeted and renamed (postal-migrator → intranet-migrator; postal-migration → intranet-migrator); SQL login `syntaxintranet` normalized to lowercase across all specs and deploy artifacts
+
+Spec: [siwebspec.md](siwebspec.md)
 Source: `D:\Webs\Syntax\syntaxintranet\trunk\web\`
 Migration: `D:\Webs\Syntax\syntaxintranet\migration\web\`
 
@@ -19,7 +21,7 @@ Migration: `D:\Webs\Syntax\syntaxintranet\migration\web\`
 | 7 | Create `connvars.template.asp` | ✅ Done | SQLOLEDB template with tokens |
 | 8 | Create `infra/web/gen-connvars.ps1` | ✅ Done | Renders connvars.asp from env vars |
 | 9 | Create `infra/web/deploy-website-local.ps1` | ✅ Done | Stage → zip → az webapp deploy → smoke |
-| 10 | Create SQL login `SyntaxIntranet` | ✅ Done | Run against syntax-sql/SyntaxIntranet |
+| 10 | Create SQL login `syntaxintranet` | ✅ Done | Created + stored in Key Vault kvsyntax; local git repo initialized |
 | 11 | Provision App Service `intranet-web` | ☐ Pending | On postal-web-plan, 32-bit, Classic pipeline |
 | 12 | Set App Service Authentication (Entra ID) | ☐ Pending | Anonymous off |
 | 13 | Deploy to staging | ☐ Pending | Run deploy-website-local.ps1 |
@@ -59,6 +61,13 @@ pwsh D:\Webs\Syntax\syntaxintranet\migration\infra\web\deploy-website-local.ps1 
 | App Service Plan | `postal-web-plan` (Windows) | RG `Syntax` |
 | SQL Server | `syntax-sql` | RG `Syntax` |
 | SQL Database | `SyntaxIntranet` | on `syntax-sql` |
-| SQL Login | `SyntaxIntranet` | least-privilege |
+| SQL Login | `syntaxintranet` | least-privilege; secret in Key Vault kvsyntax |
 | Key Vault | `kvsyntax` | RG `Syntax` |
 | Storage (if needed) | `syntaxstoragev2` / `syntaxstoragecontainer1` | RG `Syntax` |
+
+## Agent & Skill Files (Updated)
+
+- Agent: `.github/agents/intranet-migrator.agent.md` (was postal-migrator.agent.md)
+- Skill: `.github/skills/intranet-migrator/SKILL.md` (was postal-migration/SKILL.md)
+- Both now reference SyntaxIntranet deployment, not Postal importer
+

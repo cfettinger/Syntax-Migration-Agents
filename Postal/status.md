@@ -37,6 +37,15 @@ See [`INTRANET_STATUS.md`](./INTRANET_STATUS.md) for SyntaxIntranet website stat
 
 ---
 
+## Azure AI Services tier eligibility update
+
+- 2026-10-28T16:45:00Z — Subscription `5a5056f9-2199-4063-9133-0d9a32714a8a` is now eligible for an upgrade from the current **Free Tier** to the next **Tier 1** within the Azure AI Services platform.
+- This eligibility is informational only and does not change the current Postal implementation plan. It is relevant to any follow-on AI/vision or Azure OpenAI work that may be added under the same subscription, and it should be reviewed before enabling higher-capacity Azure AI workloads.
+- Related context: this is a platform subscription note only; it does not alter the Postal importer deployment architecture described in `spec.md` or the classic ASP intranet lift-and-shift plan in `Intranet/siwebspec.md`.
+- **Migration note:** this subscription tier path could enable future **Azure AI Foundry Agent** workloads for migration automation, model-assisted validation, or operator guidance without changing the current production Postal deployment pattern.
+
+---
+
 ## Azure App Service Easy Auth (`PostalApi-Auth`) notes
 
 The Postal API should use Azure App Service Authentication with Microsoft Entra ID as the front-door auth layer for the upload portal and import API.
