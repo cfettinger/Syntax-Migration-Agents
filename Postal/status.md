@@ -1,10 +1,11 @@
 # Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL — Implementation Status
 
-**Last Updated:** 2026-10-27T14:40:00Z (spec v1.5; **ALL SERVICES LIVE IN PRODUCTION** — `postal-web` fully running with production data imported; long-time 404 on all Postal pages fixed; Postal.Api + Function live; all E2E tests PASSED. **Remaining: only custom domain names and a cloud (GitHub) repository**)
+**Last Updated:** 2026-10-28T16:45:00Z (spec v1.5; **ALL SERVICES LIVE IN PRODUCTION** — `postal-web` fully running with production data imported; long-time 404 on all Postal pages fixed; Postal.Api + Function live; all E2E tests PASSED. **Remaining: only custom domain names and a cloud (GitHub) repository**)
 **Spec Version:** 1.5  
 **Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete ✅, Azure API + Function live ✅, upload UI feature complete ✅, website production live ✅, queue encoding alignment fix deployed ✅, all E2E tests PASSED ✅).  
 **Implementation Phase:** ✅ **PRODUCTION — fully live.** `postal-web`, `Postal.Api`, and `Postal.Function` all running in production; data imported end-to-end.
 **Agent:** Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot; model: GPT-5 / GitHub Copilot harness)
+See [`INTRANET_STATUS.md`](./INTRANET_STATUS.md) for SyntaxIntranet website status
 
 ## Bicep cleanup progress
 - 2026-10-26T07:30:00Z — cleaned the duplicated App Service plan and resource declarations in `infra/bicep/main.bicep`; retained a single Linux shared plan for `postal-api` + `postal-worker` and kept the separate `postal-web.bicep` module for the Windows website resource.
