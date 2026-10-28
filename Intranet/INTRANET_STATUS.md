@@ -10,16 +10,16 @@ Migration: `D:\Webs\Syntax\syntaxintranet\migration\web\`
 
 | # | Task | Status | Notes |
 |---|---|---|---|
-| 1 | Copy production files to migration/web | ✅ Done | 62 ASP + 9 dirs; junk excluded |
+| 1 | Copy production files to migration/web | ✅ Done | 62 ASP + 9 dirs + 150 script files; junk excluded |
 | 2 | Create deploy-list.txt | ✅ Done | Lists all deploy entries |
 | 3 | Fix `database.asp` (connvars include) | ✅ Done | ODBC → SQLOLEDB via connvars.asp |
-| 4 | Fix `leadlog/database.asp` (connvars include) | ✅ Done | Same pattern |
+| 4 | Fix `leadlog/database.asp` (connvars include) | ✅ Done | Same pattern, relative path `../connvars.asp` |
 | 5 | Fix `global.asa` (endsession.asp → logout.asp) | ✅ Done | Removed ASP.NET API call |
-| 6 | Clean `Web.config` | ✅ Done | Stripped machineKey, debug, Windows auth, Detailed errors |
+| 6 | Clean `Web.config` | ✅ Done | Stripped machineKey, debug→false, Windows→None, Detailed→Custom |
 | 7 | Create `connvars.template.asp` | ✅ Done | SQLOLEDB template with tokens |
 | 8 | Create `infra/web/gen-connvars.ps1` | ✅ Done | Renders connvars.asp from env vars |
 | 9 | Create `infra/web/deploy-website-local.ps1` | ✅ Done | Stage → zip → az webapp deploy → smoke |
-| 10 | Create SQL login `SyntaxIntranet` | ☐ Pending | Run against syntax-sql/SyntaxIntranet |
+| 10 | Create SQL login `SyntaxIntranet` | ✅ Done | Run against syntax-sql/SyntaxIntranet |
 | 11 | Provision App Service `intranet-web` | ☐ Pending | On postal-web-plan, 32-bit, Classic pipeline |
 | 12 | Set App Service Authentication (Entra ID) | ☐ Pending | Anonymous off |
 | 13 | Deploy to staging | ☐ Pending | Run deploy-website-local.ps1 |
