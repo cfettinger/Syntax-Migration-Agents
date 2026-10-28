@@ -110,6 +110,8 @@ DbPassword = "<generated-from-keyvault>"
 
 **Also fix `leadlog/database.asp`** — the leadlog sub-app has its own `database.asp` with a separate hardcoded connection. Apply the same `connvars.asp` include pattern there.
 
+**Also fix `checklogin.asp`** — the login validation page has its own hardcoded ODBC connection (not via `database.asp`). Replace with `connvars.asp` include + `conn.Open ConnString, DbUser, DbPassword`.
+
 ### 6.2 `Web.config` cleanup
 
 Strip:

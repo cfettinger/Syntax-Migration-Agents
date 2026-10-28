@@ -2,7 +2,7 @@
 
 Classic ASP Syntax Intranet → Azure App Service (`intranet-web` on `postal-web-plan`, RG `Syntax`)
 
-**Last Update**: Site deployed to `intranet-web` — Web.config cleaned per §6.2 (removed .NET 3.5 refs, httpHandlers, httpModules, system.codedom); all 8 smoke test pages return 200; deploy script path bug fixed
+**Last Update**: Fixed `checklogin.asp` hardcoded ODBC connection → `connvars.asp` include (was still pointing to legacy 172.20.0.141); redeployed; login flow now uses SQLOLEDB via Azure SQL
 
 Spec: [siwebspec.md](siwebspec.md)
 Source: `D:\Webs\Syntax\syntaxintranet\trunk\web\`
