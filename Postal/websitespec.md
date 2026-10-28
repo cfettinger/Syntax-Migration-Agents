@@ -47,7 +47,7 @@ One note from `syntax-webapp.txt` that does **not** apply: "use Connection strin
   - Custom domain `postal.syntaxcom.com` (CNAME) with App Service-managed certificate.
 - **New SQL login `postalweb`** in the shared database (§7). The importer's identity from `spec.md` is unchanged.
 - **App Insights** — reuse; the site's failures (500s, ADODB errors) land in the same component or a second one. Alert on 5xx spikes.
-- Storage account: **none in Phase 1**. No queue, no Function. If the §6.5 upload add-on is enabled, reuse `spec.md`'s storage account (container `imports`) — do not create a second one.
+- Storage account: **none in Phase 1**. No queue, no Function. If the §6.5 upload add-on is enabled, reuse `spec.md`'s storage account (container `syntaxstoragecontainer1`) — do not create a second one.
 
 ## Source inventory and cleanup
 
@@ -112,7 +112,7 @@ Phase 1 ships without uploads. If the classic site later gains an upload feature
   Dim bytes, http
   bytes = Request.BinaryRead(Request.TotalBytes)
   Set http = Server.CreateObject("MSXML2.ServerXMLHTTP.6.0")
-  http.Open "PUT", "https://ACCOUNT.blob.core.windows.net/imports/<name>?<SAS>", False
+  http.Open "PUT", "https://ACCOUNT.blob.core.windows.net/syntaxstoragecontainer1/<name>?<SAS>", False
   http.SetRequestHeader "x-ms-blob-type", "BlockBlob"
   http.SetRequestHeader "Content-Type", "application/octet-stream"
   http.Send bytes
@@ -258,7 +258,7 @@ Disposition: **K** = deploy unchanged, **K+** = deploy with the §6 edits only, 
 - **Security**: unauthenticated request → Entra sign-in (not a 200); `curl` from a non-allowlisted network → HTTPS redirect; parameter probe (`district' OR 1=1--`) on every input returns validation error/empty, not a stack trace (Phase 1: bounded by least-priv login; Phase 2: parameterized).
 - **Injection regression tests** (Phase 2): one automated pass per page against the §5 list.
 - **Observability**: an induced 500 appears in App Insights with request ID; no credentials in the deployed zip (scan artifact).
-- **Upload path (only if §6.5 is enabled)**: a test upload lands in the `imports` container with the correct name/size, the page stores the blob URL (SAS nowhere in DB or logs), and nothing was written to `wwwroot`/temp.
+- **Upload path (only if §6.5 is enabled)**: a test upload lands in the `syntaxstoragecontainer1` container with the correct name/size, the page stores the blob URL (SAS nowhere in DB or logs), and nothing was written to `wwwroot`/temp.
 
 ## `CONVERSION.md` entry points (record as facts)
 

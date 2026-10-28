@@ -111,7 +111,7 @@ Deployment failed: `SubscriptionIsOverQuotaForSku`
                          │
         ┌────────────────▼────────────────┐
         │  Azure Blob Storage             │  ← File upload (user SAS)
-        │  (imports container)            │  ← Function reads blob
+        │(syntaxstoragecontainer1)        │  ← Function reads blob
         └────────────────┬────────────────┘
                          │
         ┌────────────────▼────────────────┐
