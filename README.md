@@ -7,6 +7,7 @@ A collection of agent specs and specifications for migrating legacy postal-deliv
 | Directory | Description |
 |-----------|-------------|
 | [`Postal/`](Postal/) | Migration spec for the legacy desktop import app (`Form1.vb`, VB.NET WinForms). Covers the target design: browser → Azure Blob Storage block upload, queue-based worker, Azure SQL bulk insert of the fixed-width `Delstat` import. See [`Postal/spec.md`](Postal/spec.md) for the full v1.4 specification and [`Postal/status.md`](Postal/status.md) — the live plan and progress tracker for the Postal implementation. |
+| [`Intranet/`](Intranet/) | Migration spec for the legacy Classic ASP SyntaxIntranet site (VBScript + ADODB) to Azure App Service (Windows). Covers lift & shift: SQLOLEDB connection via generated `connvars.asp`, Web.config cleanup, forms authentication, zip-deploy, and smoke tests. See [`Intranet/siwebspec.md`](Intranet/siwebspec.md) for the full specification and [`Intranet/INTRANET_STATUS.md`](Intranet/INTRANET_STATUS.md) — the live task tracker. |
 | [`beanstalk-github/`](beanstalk-github/) | A portable agent prompt (`agent.md`) that walks a user through migrating a Beanstalk-hosted SVN repository to a GitHub Git repository. Targets VS Code (Copilot), Claude Code, and Hermes harnesses. |
 
 ## Postal migration — summary
@@ -56,6 +57,25 @@ uses OIDC (`azure/login@v2`) and .NET 10 setup (`dotnet/setup-dotnet@v4` with
 fetched from Key Vault at deploy time. See `infra/README.md` in the migration
 repo.
 
+## Intranet migration — summary
+
+- **Today:** a Classic ASP (VBScript + ADODB) intranet site — 62 `.asp` pages, 9 directories — runs on on-prem IIS with a hardcoded ODBC connection to a legacy SQL Server.
+- **Target:** lift & shift to Azure App Service (`intranet-web` on `postal-web-plan`, Windows, 32-bit, Classic pipeline) with minimal code changes:
+  - Database connection replaced with SQLOLEDB via a deploy-time generated `connvars.asp` (password from Key Vault, never committed).
+  - `Web.config` cleaned (removed .NET 3.5 refs, `machineKey`, `httpHandlers`, `httpModules`).
+  - Forms authentication (`stafflogin.asp` → `checklogin.asp`) is the sole auth gate; no AAD app registration.
+  - Deployment via `deploy-website-local.ps1` (stage → zip → `az webapp deploy` → smoke test).
+- **Status (2026-10-28):** Site deployed and live at `https://intranet-web.azurewebsites.net`; all 8 smoke test pages return 200. Remaining: DNS cutover (after two clean cycles on legacy). Tracked in [`Intranet/INTRANET_STATUS.md`](Intranet/INTRANET_STATUS.md).
+
 ## Beanstalk → GitHub migration — summary
 
 A step-by-step agent procedure using `git svn clone --stdlayout` (with `authors.txt` mapping) to convert a Beanstalk SVN repo to GitHub, preserving branches and tags and preferring SSH remotes. No credentials are ever written to files.
+
+## Project Links
+
+| Project | Spec | Status Tracker | Implementation Repo |
+|---------|------|----------------|---------------------|
+| **Postal Importer** (VB.NET → .NET 10) | [`Postal/spec.md`](Postal/spec.md) | [`Postal/status.md`](Postal/status.md) | `D:\Webs\Syntax\PostalExe\migration` |
+| **Postal Website** (Classic ASP lift & shift) | [`Postal/websitespec.md`](Postal/websitespec.md) | [`Postal/status.md`](Postal/status.md) | `D:\Webs\Syntax\PostalExe\migration` |
+| **SyntaxIntranet** (Classic ASP lift & shift) | [`Intranet/siwebspec.md`](Intranet/siwebspec.md) | [`Intranet/INTRANET_STATUS.md`](Intranet/INTRANET_STATUS.md) | `D:\Webs\Syntax\syntaxintranet\migration` |
+| **Beanstalk → GitHub** (SVN migration agent) | [`beanstalk-github/agent.md`](beanstalk-github/agent.md) | — | — |
