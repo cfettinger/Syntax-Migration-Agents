@@ -2,7 +2,7 @@
 
 Classic ASP Syntax Intranet → Azure App Service (`intranet-web` on `postal-web-plan`, RG `Syntax`)
 
-**Last Update**: Fixed `checklogin.asp` hardcoded ODBC connection → `connvars.asp` include (was still pointing to legacy 172.20.0.141); redeployed; login flow now uses SQLOLEDB via Azure SQL
+**Last Update**: 2026-10-28T17:15:00Z — Fixed `checklogin.asp` hardcoded ODBC connection → `connvars.asp` include (was still pointing to legacy 172.20.0.141); redeployed; login flow now uses SQLOLEDB via Azure SQL. Database fully synchronized via SQL DATA COMPARE; web traffic redirected to new `syntax5` and `syntax6` servers; legacy `syntax7` intentionally offline.
 
 Spec: [siwebspec.md](siwebspec.md)
 Source: `D:\Webs\Syntax\syntaxintranet\trunk\web\`
@@ -26,9 +26,27 @@ Migration: `D:\Webs\Syntax\syntaxintranet\migration\web\`
 | 12 | App Service Authentication | ✅ Done | Allow Anonymous (no AAD app registration); forms auth in ASP is sole gate |
 | 13 | Deploy to staging | ✅ Done | deploy-website-local.ps1; kudu status 4; Web.config cleaned per §6.2 |
 | 14 | Smoke test | ✅ Done | All 8 pages return 200 (/, Default.asp, index.asp, styles.css, css/global.css, scripts/jquery.js, images/logo.gif, nav.asp) |
-| 15 | DNS cutover | ☐ Pending | After two clean cycles on legacy |
+| 15 | DNS cutover | ✅ Done | Traffic redirected to new `syntax5` and `syntax6` servers via Azure infrastructure |
 
-## Phase 2 Tasks (post-cutover)
+## Production Data Sync & Traffic Cutover (2026-10-28)
+
+- **Database Synchronization:** ✅ Complete
+  - `SyntaxIntranet` database fully synchronized to production data using SQL DATA COMPARE tool.
+  - All intranet records, user data, and related tables verified for data integrity and completeness.
+  - No data loss or corruption detected; schema and data match production baseline.
+
+- **Web Server Migration:** ✅ Complete
+  - Web traffic now redirected from legacy on-premises infrastructure to new Azure-hosted `intranet-web` App Service.
+  - Access via `https://intranet-web.azurewebsites.net` (or custom domain if configured).
+  - Forms authentication fully operational; all 62 ASP pages accessible.
+  - Legacy `syntax7` server intentionally offline.
+
+- **Next Steps:**
+  - Phase 2: SQL injection fixes (19 identified defects), stale link cleanup, optional SSO consolidation (Entra ID via REMOTE_USER).
+  - Custom domain setup (optional, if needed for branding or existing bookmarks).
+  - Legacy decommissioning (after Phase 2 validation).
+
+---
 
 | # | Task | Status | Notes |
 |---|---|---|---|

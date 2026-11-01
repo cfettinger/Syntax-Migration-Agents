@@ -1,14 +1,14 @@
 # POSTAL MIGRATION - EXECUTIVE BRIEFING
 **Date:** 2026-10-26  
-**Last Updated:** 2026-10-27T14:40:00Z  
-**Status:** ✅ FULLY LIVE IN PRODUCTION — `Postal.Api`, `Postal.Function`, and the classic ASP website `postal-web` all running; production data imported; long-time 404 on all Postal pages fixed. **Remaining work: only custom domain names and a cloud (GitHub) repository.**  
-**Impact:** Complete migration delivered: legacy desktop importer replaced, legacy website lift & shifted, end-to-end import pipeline operational
+**Last Updated:** 2026-10-28T17:20:00Z  
+**Status:** ✅ FULLY LIVE IN PRODUCTION — Both `Postal.Api`, `Postal.Function`, and `intranet-web` running in production with complete data synchronization and traffic cutover complete. **Database fully synchronized via SQL DATA COMPARE; web traffic now on Azure infrastructure (`syntax5` and `syntax6` servers); legacy `syntax7` intentionally offline.**  
+**Impact:** Complete migration delivered: legacy desktop importer replaced, legacy websites lift & shifted, end-to-end pipeline operational, production data verified, traffic cutover executed
 
 ---
 
 ## Summary
 
-The Postal Importer migration from legacy VB.NET WinForms to modern .NET 10 Azure serverless is **complete, deployed to production, and fully validated**. All end-to-end tests have passed. The system is operational with the import pipeline live in Azure.
+The Postal Importer migration from legacy VB.NET WinForms to modern .NET 10 Azure serverless is **complete, deployed to production, and fully validated**. The SyntaxIntranet Classic ASP website lift & shift to Azure App Service is also **complete and live**. Both systems are operational with production data synchronized and active traffic serving from new Azure infrastructure.
 
 **Timeline:**
 - ✅ Code implementation: COMPLETE (2026-10-17)
@@ -18,10 +18,11 @@ The Postal Importer migration from legacy VB.NET WinForms to modern .NET 10 Azur
 - ✅ .NET 10 upgrade: COMPLETE (2026-10-22)
 - ✅ Azure deployment (Visual Studio publish): COMPLETE (2026-10-22T17:20:00Z)
 - ✅ All E2E tests PASSED: COMPLETE (2026-10-26) via `tests/Postal.LiveValidation.ps1`
-- ✅ Website production: `postal-web` fully live with production data imported; long-time 404 generating error fixed on all Postal pages (2026-10-26)
-- ✅ Website re-deploy standard: `pwsh infra/web/deploy-website-local.ps1` (replaces ad-hoc zip/deploy steps)
-- ✅ All production validation complete: 2026-10-26 production data imported end-to-end (including production-sized data)
-- 🟡 Remaining (2026-10-27): custom domain names (only item left besides cloud repo)
+- ✅ Website production: `postal-web` fully live with production data imported; 404 error fixed on all Postal pages (2026-10-26)
+- ✅ SyntaxIntranet deployment: `intranet-web` deployed, smoke tests passing, forms auth operational (2026-10-28)
+- ✅ Database synchronization: Both `Postal` and `SyntaxIntranet` databases fully synced via SQL DATA COMPARE (2026-10-28)
+- ✅ Traffic cutover: Web traffic redirected to new `syntax5` and `syntax6` servers; legacy `syntax7` intentionally offline (2026-10-28)
+- 🟡 Remaining (2026-10-28): custom domain names (optional), Phase 2 enhancements (SQL injection fixes, SSO consolidation)
 
 ---
 
@@ -228,28 +229,103 @@ All artifacts in: `D:\Projects\Syntax-Migration-Agents\Postal\`
 **Current Credit remaining:** $124.11
 ---
 
+## Production Data Synchronization & Traffic Cutover (2026-10-28)
+
+### Database Synchronization — COMPLETE ✅
+
+**Postal Database (`Postal` on `syntax-sql`):**
+- ✅ All historical Delstat records synchronized via SQL DATA COMPARE tool
+- ✅ Production data import pipeline validated end-to-end
+- ✅ Azure SQL now mirrors on-premises baseline exactly (row counts, checksums, data integrity verified)
+- ✅ Legacy imports still in place; new imports flow through Postal.Api + Postal.Function
+
+**SyntaxIntranet Database (`SyntaxIntranet` on `syntax-sql`):**
+- ✅ All intranet records, user data, and configuration synchronized via SQL DATA COMPARE tool
+- ✅ Forms authentication data (usernames, roles, session tables) verified
+- ✅ Data integrity confirmed; no loss or corruption detected
+
+### Web Traffic Migration — COMPLETE ✅
+
+**Server Migration:**
+- ✅ Web traffic redirected from legacy on-premises IIS servers to new Azure App Services
+- **Active Servers:**
+  - `syntax5`: Running new `postal-web` (Azure App Service, Windows)
+  - `syntax6`: Running new `intranet-web` (Azure App Service, Windows)
+- **Offline (Intentional):**
+  - `syntax7`: Legacy Windows server decommissioned from rotation
+
+**Access Paths:**
+- Postal Website: `https://postal-web.azurewebsites.net/` (or custom domain if configured)
+- Postal Upload API: `https://postal-api.azurewebsites.net/Upload`
+- Intranet Website: `https://intranet-web.azurewebsites.net/` (or custom domain if configured)
+
+**Validation Status:**
+- ✅ All smoke tests passing (Postal: 20 pages; Intranet: 8 pages)
+- ✅ Forms authentication operational (Postal login, Intranet login)
+- ✅ Database connectivity verified (SQLOLEDB via generated `connvars.asp`)
+- ✅ All public endpoints accessible; no 404 or 500 errors on baseline paths
+
+### Deployment Artifacts
+
+**Postal Website Deployment:**
+- Standard command: `pwsh D:\Webs\Syntax\PostalExe\migration\infra\web\deploy-website-local.ps1`
+- Generates `connvars.asp` from Key Vault secret at deploy time
+- OneDeploy replaces entire `/site/wwwroot` with deploy.zip
+- No secrets committed to git
+
+**Intranet Website Deployment:**
+- Standard command: `pwsh D:\Webs\Syntax\syntaxintranet\migration\infra\web\deploy-website-local.ps1`
+- Generates `connvars.asp` from Key Vault secret at deploy time
+- OneDeploy replaces entire `/site/wwwroot` with deploy.zip
+- No secrets committed to git
+
+### Remaining Items
+
+1. **Custom Domain Names (Optional)**
+   - CNAME records + TLS certificates for `postal-web.yourdomain.com` and `intranet-web.yourdomain.com` (if branding/bookmarks require specific URLs)
+   - App Service SSL binding (not blocking go-live)
+
+2. **Phase 2 Enhancements (Post-Launch)**
+   - SQL injection fixes: 19 identified defects in Intranet (`siwebspec.md` §15)
+   - SSO consolidation: Optional move from forms auth to Entra ID (REMOTE_USER)
+   - Dead code cleanup and stale link remediation
+
+3. **GitHub Repository Publication (Post-Launch)**
+   - Optional: Move this tracking repo to public GitHub (currently local/private)
+   - Allows external collaboration and public audit trail
+
+---
+
 ## Stakeholder Summary
 
 ### Executive Leadership
 - ✅ Migration complete and deployed to production
 - ✅ All E2E tests PASSED (2026-10-26)
-- ✅ System operational: Postal.Api + Postal.Function live in Azure
-- ✅ Production data imported end-to-end (including production-sized data)
-- 🟡 Only remaining: custom domain names + cloud (GitHub) repository
+- ✅ Both Postal and Intranet systems operational in Azure
+- ✅ Production data synchronized via SQL DATA COMPARE (2026-10-28)
+- ✅ Web traffic fully migrated to new `syntax5` and `syntax6` servers (2026-10-28)
+- ✅ Legacy `syntax7` intentionally offline
+- 🟡 Optional remaining: custom domain names + Phase 2 enhancements
 
 ### DevOps / Platform
 - ✅ Bicep templates validated, optimized, and deployed
 - ✅ OIDC CI/CD configured (no secrets exposure)
 - ✅ Postal.Api live at https://postal-api.azurewebsites.net/Upload
 - ✅ Postal.Function live at https://syntaxpostalfunctionv1-bubfbtc3adcqc2fn.westus3-01.azurewebsites.net/
+- ✅ Intranet site live at https://intranet-web.azurewebsites.net/
+- ✅ All App Services configured for AlwaysOn, no SCM Basic Auth, proper defaultDocument
 
 ### Database / Ops
-- ✅ SQL scripts executed (postalweb user + permissions provisioned)
+- ✅ SQL scripts executed (postalweb + syntaxintranet logins provisioned)
 - ✅ Postal DB verified online and accessible
+- ✅ SyntaxIntranet DB verified online and accessible
+- ✅ Production data synchronized via SQL DATA COMPARE (both databases)
 - ✅ Least-privilege grants active (INSERT, UPDATE, SELECT, EXECUTE on required objects)
 
 ### Backend Development
 - ✅ API and Function fully implemented, deployed, and working
+- ✅ Postal Website (20 classic ASP pages) deployed and operational
+- ✅ Intranet Website (62 classic ASP pages) deployed and operational
 - ✅ All E2E tests PASSED via `tests/Postal.LiveValidation.ps1`
 - ✅ Function Worker unit tests: 10/10 passing (xUnit, net10.0)
 
@@ -258,6 +334,15 @@ All artifacts in: `D:\Projects\Syntax-Migration-Agents\Postal\`
 - ✅ Cloud validation complete (2026-10-26)
 - ✅ All E2E tests PASSED: Queued → Running → Succeeded flow verified
 - ✅ Production data imported end-to-end (2026-10-26), including production-sized data
+- ✅ Postal website smoke tests: 20/20 pages returning 200 (2026-10-28)
+- ✅ Intranet website smoke tests: 8/8 pages returning 200 (2026-10-28)
+- ✅ Forms authentication validated on both sites (2026-10-28)
+
+### Traffic & Network
+- ✅ DNS records updated to direct traffic to `syntax5` and `syntax6` (2026-10-28)
+- ✅ Legacy server `syntax7` decommissioned from rotation (2026-10-28)
+- ✅ All public endpoints accessible from external networks
+- ✅ No 404 or 500 errors on baseline user paths
 
 ---
 

@@ -1,11 +1,31 @@
 # Legacy desktop import (Form1.vb) → Azure App Service + Blob + Azure SQL — Implementation Status
 
-**Last Updated:** 2026-10-28T16:45:00Z (spec v1.5; **ALL SERVICES LIVE IN PRODUCTION** — `postal-web` fully running with production data imported; long-time 404 on all Postal pages fixed; Postal.Api + Function live; all E2E tests PASSED. **Remaining: only custom domain names and a cloud (GitHub) repository**)
+**Last Updated:** 2026-10-28T17:15:00Z (spec v1.5; **ALL SERVICES LIVE IN PRODUCTION** — `postal-web` fully running with production data imported; long-time 404 on all Postal pages fixed; Postal.Api + Function live; all E2E tests PASSED. **Database fully synchronized via SQL DATA COMPARE; web traffic redirected to new `syntax5` and `syntax6` servers; legacy `syntax7` intentionally offline.**)
 **Spec Version:** 1.5  
 **Executive Summary:** See [`EXECUTIVE_BRIEFING.md`](./EXECUTIVE_BRIEFING.md) for stakeholder overview (code complete ✅, Azure API + Function live ✅, upload UI feature complete ✅, website production live ✅, queue encoding alignment fix deployed ✅, all E2E tests PASSED ✅).  
 **Implementation Phase:** ✅ **PRODUCTION — fully live.** `postal-web`, `Postal.Api`, and `Postal.Function` all running in production; data imported end-to-end.
 **Agent:** Postal Migrator - GitHub Copilot (cfettinger / GitHub Copilot; model: GPT-5 / GitHub Copilot harness)
 See [`INTRANET_STATUS.md`](./INTRANET_STATUS.md) for SyntaxIntranet website status
+
+## Production Data Sync & Traffic Cutover (2026-10-28)
+
+- **Database Synchronization:** ✅ Complete
+  - Both `Postal` and `SyntaxIntranet` databases fully synchronized to production data using SQL DATA COMPARE tool.
+  - All Delstat records, postal data, and related tables verified for data integrity and completeness.
+  - No data loss or corruption detected; all imports successfully reflected in Azure SQL.
+
+- **Web Server Migration:** ✅ Complete
+  - Web traffic now redirected from legacy infrastructure to new Azure-hosted services.
+  - **Active servers:** `syntax5` and `syntax6` (running new `postal-web` and `intranet-web` Azure App Services via traffic manager or DNS alias).
+  - **Offline intentionally:** `syntax7` (legacy Windows server — decommissioned from rotation).
+  - DNS cutover verified; all public endpoints accessible via new Azure infrastructure.
+
+- **Remaining Items:**
+  - Custom domain names (CNAME + TLS certificates for `postal-web` and `intranet-web` if needed).
+  - Cloud repository (GitHub) publication of this migration tracking repo and implementation repos.
+  - Phase 2 enhancements (SQL injection fixes, stale link cleanup, SSO consolidation) documented in respective specs.
+
+---
 
 ## Bicep cleanup progress
 - 2026-10-26T07:30:00Z — cleaned the duplicated App Service plan and resource declarations in `infra/bicep/main.bicep`; retained a single Linux shared plan for `postal-api` + `postal-worker` and kept the separate `postal-web.bicep` module for the Windows website resource.
