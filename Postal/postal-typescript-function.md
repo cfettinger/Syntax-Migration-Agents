@@ -2,6 +2,8 @@
 
 Version 1.2, 2026-11-10
 
+**Azure Function app name:** `Postal.tsFunction` (queue-triggered import worker; not an HTTP/upload endpoint).
+
 **Corrections from .NET source review (v1.2):**
 - `FlushBatchAsync` now performs bulk insert + `RowsWritten` update in one SQL transaction (fixed in .NET). TS must keep the atomic behavior.
 - `FinalizeImportAsync` wraps `EXEC Postalweb` + `EXEC Postalwebboth` + `Succeeded` status in one SQL transaction. The current `Run()` path still calls three separate methods (each opens its own connection) — **TS should use the `FinalizeImportAsync` pattern** (single transaction).
@@ -48,7 +50,8 @@ Identical file-to-database behavior to `ImportWorker.cs`:
 | **Visibility renewal** | Periodic `UpdateMessage` call to extend the queue message's visibility timeout while processing, preventing re-delivery. |
 | **Checkpoint** | `RowsWritten` counter incremented per batch; on resume, records at or below this count are skipped. |
 | **Sniff** | Reading the first 8 192 bytes of the blob to detect whether the file uses CRLF line endings (text mode) or is raw fixed-width (binary mode). |
-| **B1 plan** | The shared dedicated App Service plan (`Standard_B1`) hosting both `postal-api` and `postal-worker`. Supports `NODE\|20` runtime. |
+| **B1 plan** | The shared dedicated App Service plan (`Standard_B1`) hosting both `postal-api` and `Postal.tsFunction`. Supports `NODE\|20` runtime. |
+| **Postal.tsFunction** | The Azure Function app name for this TypeScript/Node.js import worker (the `postal-worker` role). Queue-triggered; not an HTTP/upload endpoint. |
 | **Processing step status** | `"Processing Step {n}/7 - {detail}"` (n=1..7). |
 | **Retry status** | `"QueuedForRetry {dequeueCount}"`. |
 | **Error suffix** | `"{ex.message} \| RowsWritten={n}"`. |
