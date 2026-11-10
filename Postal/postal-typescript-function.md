@@ -1,15 +1,18 @@
 # Spec: Postal.Function — TypeScript / Node.js Reimplementation
 
-Version 1.1, 2026-11-08
+Version 1.2, 2026-11-10
 
-**Corrections from .NET source review:**
-- Active path (`FlushBatchAsync`) already performs bulk insert + `RowsWritten` update in one SQL transaction. Unused `BulkInsertAsync`/`IncrementRowsWrittenAsync` methods are separate. TS must keep the atomic behavior.
+**Corrections from .NET source review (v1.2):**
+- `FlushBatchAsync` now performs bulk insert + `RowsWritten` update in one SQL transaction (fixed in .NET). TS must keep the atomic behavior.
+- `FinalizeImportAsync` wraps `EXEC Postalweb` + `EXEC Postalwebboth` + `Succeeded` status in one SQL transaction. The current `Run()` path still calls three separate methods (each opens its own connection) — **TS should use the `FinalizeImportAsync` pattern** (single transaction).
 - Progress statuses are free-text exactly as emitted (7 steps). Preserve for UI.
-- `FinalizeImportAsync` exists but is unused. Actual path runs `EXEC Postalweb` then `EXEC Postalwebboth` then status update (separate connections).
 - Parser throws on invalid integers; skips whitespace/null records; warns+skips short lines; throws on long lines; binary trailing partial warns and stops.
-- Startup log is `LogError` (change to Information). Full blob URI is logged (sanitize to container + name only).
+- Startup log is `LogError` in .NET (change to Information in TS). Full blob URI is logged in .NET (sanitize to container + name only in TS).
 - `totalRecords = SizeBytes / 309` is approximation only (used in error messages).
 - Queue client uses `AzureWebJobsStorage` connection string. Visibility renewal passes original message text and tracks new `popReceipt`.
+- `POSTAL_IMPORTS_CONTAINER` has a two-level fallback: `POSTAL_IMPORTS_CONTAINER` → `IMPORTS_CONTAINER` → `"imports"`.
+- `POSTAL_MANAGED_IDENTITY_CLIENT_ID` has a three-level fallback: `POSTAL_MANAGED_IDENTITY_CLIENT_ID` → `AZURE_CLIENT_ID` → `MANAGED_IDENTITY_CLIENT_ID`.
+- `TRUNCATE TABLE` is DDL and auto-commits in SQL Server — it cannot be wrapped in a transaction.
 
 ## 1. Purpose & Scope
 
@@ -27,9 +30,12 @@ Identical file-to-database behavior to `ImportWorker.cs`:
 
 **Known .NET behaviors to preserve or fix:**
 - Status strings must match exactly (UI polling).
-- Startup log → Information.
+- Startup log → Information (not Error).
 - Blob logs: container + blob name only (no storage account URL).
-- Atomic bulk + checkpoint (already true in active .NET path).
+- Atomic bulk + checkpoint (single transaction, already true in .NET).
+- Atomic finalization: `EXEC Postalweb` + `EXEC Postalwebboth` + `Succeeded` status in one transaction (use `FinalizeImportAsync` pattern).
+- Sanitized SQL config summary at startup (DataSource, InitialCatalog, auth mode — no passwords).
+- Structured logging scope with `jobId`, `dequeueCount`, `queueMessageId` for App Insights correlation.
 
 ## 2. Definitions
 
@@ -74,11 +80,11 @@ Identical file-to-database behavior to `ImportWorker.cs`:
   - Integer fields: `int` parse after trim; throw `InvalidDataException` on failure (include field name + raw value).
 - **REQ-009:** The function SHALL batch parsed rows and bulk-insert into `Delstat` when the batch reaches `POSTAL_IMPORT_BATCH_SIZE` (default 1 000, range 1–50 000).
 - **REQ-010:** After each batch insert, the function SHALL increment `ImportJob.RowsWritten` by the batch size. **The bulk insert and the `RowsWritten` increment MUST execute within the same SQL transaction**.
-- **REQ-011:** After all records are processed, the function SHALL execute `EXEC Postalweb` followed by `EXEC Postalwebboth`.
-- **REQ-012:** The function SHALL mark the job `Succeeded` (with `CompletedUtc = UTC now`) after both stored procedures complete.
-- **REQ-013:** The function SHALL mark the job `Failed` (with error message and `CompletedUtc = UTC now`) if an unhandled exception occurs and `dequeueCount >= maxRetries`.
-- **REQ-014:** If an exception occurs and `dequeueCount < maxRetries`, the function SHALL set status to `"QueuedForRetry {dequeueCount}"` and rethrow to trigger Azure Functions retry.
-- **REQ-015:** The function SHALL run a visibility renewal loop that calls `UpdateMessage` every `POSTAL_QUEUE_VISIBILITY_RENEWAL_SECONDS` (default 120 s) with a timeout of `POSTAL_QUEUE_VISIBILITY_TIMEOUT_SECONDS` (default 600 s), until processing completes or is cancelled. Pass original message text; update local `popReceipt` from response.
+- **REQ-011:** After all records are processed, the function SHALL execute `EXEC Postalweb` followed by `EXEC Postalwebboth`, then mark the job `Succeeded` (with `CompletedUtc = UTC now`). **All three operations MUST execute within the same SQL transaction** (use the `FinalizeImportAsync` pattern from .NET).
+- **REQ-012:** The function SHALL mark the job `Failed` (with error message and `CompletedUtc = UTC now`) if an unhandled exception occurs and `dequeueCount >= maxRetries`.
+- **REQ-013:** If an exception occurs and `dequeueCount < maxRetries`, the function SHALL set status to `"QueuedForRetry {dequeueCount}"` and rethrow to trigger Azure Functions retry.
+- **REQ-014:** The function SHALL run a visibility renewal loop that calls `UpdateMessage` every `POSTAL_QUEUE_VISIBILITY_RENEWAL_SECONDS` (default 120 s) with a timeout of `POSTAL_QUEUE_VISIBILITY_TIMEOUT_SECONDS` (default 600 s), until processing completes or is cancelled. Pass original message text; update local `popReceipt` from response.
+- **REQ-015:** If the `ImportJob` row is not found in the database (0 rows returned by `GetImportJob`), the function SHALL log an error and return without rethrowing (no retry — the job was likely deleted or the GUID is wrong).
 
 **Progress statuses (exact strings):**
 1. `"Processing Step 1/7 - Started"`
@@ -198,8 +204,18 @@ All operations use parameterized queries via the `mssql` package.
 | CAS claim | `UPDATE ImportJob SET Status = 'Running', Error = NULL WHERE Id = @Id AND Status LIKE 'Queued%'` | `@Id` (uniqueidentifier) |
 | Truncate | `TRUNCATE TABLE Delstat` | — |
 | Bulk + checkpoint | Single transaction: `bulk()` into Delstat + `UPDATE ImportJob SET RowsWritten = RowsWritten + @Added WHERE Id = @Id` | 18 columns per row; `@Added` (int), `@Id` |
+| Finalize (single txn) | `EXEC Postalweb` + `EXEC Postalwebboth` + `UPDATE ImportJob SET Status='Succeeded', CompletedUtc=@Now WHERE Id=@Id` | `@Now` (datetime2), `@Id` |
 | Progress / status | `UPDATE ImportJob SET Status = @Status, Error = COALESCE(@Error, Error), CompletedUtc = CASE WHEN @IsTerminal = 1 THEN @Now ELSE CompletedUtc END WHERE Id = @Id` | `@Status`, `@Error`, `@IsTerminal`, `@Now`, `@Id` |
-| Exec SP | `EXEC Postalweb` / `EXEC Postalwebboth` | — |
+
+> **Note:** `TRUNCATE TABLE` is DDL and auto-commits in SQL Server. It cannot be wrapped in a transaction. Execute it as a standalone statement before the first batch.
+
+**`mssql` column types for `Delstat` bulk insert:**
+
+| Column | `mssql` type |
+|--------|-------------|
+| `zipcode` | `mssql.NVarChar` |
+| `routeid` | `mssql.NVarChar` |
+| `actBcentral` … `actRnpu` (16 fields) | `mssql.Int` |
 
 **Transaction requirement (REQ-010):**
 
@@ -255,13 +271,13 @@ All variable names match the .NET implementation exactly (GUD-005).
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `STORAGE_ACCOUNT_URL` | **Yes** | — | Blob service URL, e.g. `https://syntaxstoragev2.blob.core.windows.net` |
-| `POSTAL_IMPORTS_CONTAINER` | No | `imports` | Blob container for uploaded `.wrk` files |
-| `POSTAL_IMPORTS_QUEUE` | No | `imports` | Queue name for import job messages |
+| `POSTAL_IMPORTS_CONTAINER` | No | `imports` | Blob container for uploaded `.wrk` files. Fallback chain: `POSTAL_IMPORTS_CONTAINER` → `IMPORTS_CONTAINER` → `"imports"`. |
+| `POSTAL_IMPORTS_QUEUE` | No | `imports` | Queue name for import job messages. |
 | `POSTAL_DB_CONN` | No* | — | Full SQL connection string (local dev fallback). If set, used instead of managed identity. |
 | `POSTAL_SQL_SERVER` | No* | — | SQL server hostname (managed identity path). *Required if `POSTAL_DB_CONN` is not set. |
 | `POSTAL_SQL_DATABASE` | No* | — | SQL database name (managed identity path). *Required if `POSTAL_DB_CONN` is not set. |
 | `POSTAL_USE_MANAGED_IDENTITY` | No | `true` | Set to `0`/`false`/`no` to disable managed identity (use `POSTAL_DB_CONN`). |
-| `POSTAL_MANAGED_IDENTITY_CLIENT_ID` | No | — | User-assigned MI client ID. If absent, uses system-assigned MI. |
+| `POSTAL_MANAGED_IDENTITY_CLIENT_ID` | No | — | User-assigned MI client ID. Fallback chain: `POSTAL_MANAGED_IDENTITY_CLIENT_ID` → `AZURE_CLIENT_ID` → `MANAGED_IDENTITY_CLIENT_ID`. If all absent, uses system-assigned MI. |
 | `POSTAL_IMPORT_BATCH_SIZE` | No | `1000` | Rows per bulk insert batch. Range: 1–50 000. |
 | `POSTAL_MAX_RETRIES` | No | `5` | Max dequeue count before marking job Failed. Range: 1–20. |
 | `POSTAL_QUEUE_VISIBILITY_TIMEOUT_SECONDS` | No | `600` | Visibility timeout for renewal. Range: 60–7200. |
@@ -295,7 +311,8 @@ All variable names match the .NET implementation exactly (GUD-005).
       "Azure": "Warning",
       "Azure.Core": "Warning",
       "Azure.Identity": "Warning",
-      "Microsoft.Identity": "Warning"
+      "Microsoft.Identity": "Warning",
+      "System.Net.Http.HttpClient": "Warning"
     }
   }
 }
