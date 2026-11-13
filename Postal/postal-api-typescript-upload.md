@@ -428,7 +428,11 @@ Images stay at `/images/` (already in `wwwroot/images`).
 - [x] Create `src/Postal.Api/Pages/UploadTs/UploadTs.css` (copied from original `<style>` block; `@@keyframes` → `@keyframes`)
 - [x] Create `src/Postal.Api/Pages/UploadTs/tsconfig.json` (ES2022, strict)
 - [x] Compile `UploadTs.ts` → `UploadTs.js` (`npx -y -p typescript tsc` — clean, 0 errors)
-- [x] Add static-file middleware for `Pages/UploadTs` to `Program.cs` (`UseStaticFiles` with `PhysicalFileProvider`, `RequestPath = "/UploadTs"`; added `using Microsoft.Extensions.FileProviders.Physical;`)
-- [ ] Verify (runtime): `GET /UploadTs` serves the page; `GET /UploadTs/UploadTs.js` and `/UploadTs/UploadTs.css` serve assets; original `/Upload` unchanged
+- [x] Serve `UploadTs.js` / `UploadTs.css` from `Program.cs`. **Deviation from spec:** the spec's `UseStaticFiles` + `PhysicalFileProvider` did not compile in this net10.0 env (`PhysicalFileProvider` / `GetSubDirectory` unresolved). Used explicit `MapGet` endpoints with `Results.File(path, contentType)` instead — same URLs, no extra package.
+- [x] Verify (runtime) — all HTTP 200 on `http://localhost:51007`:
+  - `GET /UploadTs` → 200 `text/html` (Razor page, 2566 B)
+  - `GET /UploadTs/UploadTs.js` → 200 `text/javascript` (7409 B)
+  - `GET /UploadTs/UploadTs.css` → 200 `text/css` (4989 B)
+  - `GET /Upload` → 200 `text/html` (original page unchanged, 20169 B)
 
 No server-side TypeScript is required. The empty `UploadModel` is discarded.
